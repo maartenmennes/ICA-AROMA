@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+# Functions for ICA-AROMA v0.3 beta
+
 def runICA(fslDir, inFile, outDir, melDirIn, mask, dim, TR):
 	""" This function runs MELODIC and merges the mixture modeled thresholded ICs into a single 4D nifti file
 
@@ -256,8 +258,9 @@ def feature_time_series(melmix, mc):
 		# Combine the squared an non-squared correlation matrices
 		corMatrix = np.concatenate((cor_sq,cor_nonsq),axis=1)
 
-		# Get maximum temporal correlation for every IC
-		maxTC[i,:]=corMatrix.max(axis=1)
+		# Get maximum absolute temporal correlation for every IC
+		corMatrixAbs = np.abs(corMatrix)
+		maxTC[i,:] = corMatrixAbs.max(axis=1)
 
 	# Get the mean maximum correlation over all random splits
 	maxRPcorr = maxTC.mean(axis=0)
@@ -290,8 +293,7 @@ def feature_frequency(melFTmix, TR):
 	FT=np.loadtxt(melFTmix)
 
 	# Determine which frequencies are associated with every row in the melodic_FTmix file  (assuming the rows range from 0Hz to Nyquist)
-	step = Ny / FT.shape[0]
-	f = np.arange(step,Ny,step)
+	f = Ny*(np.array(range(1,FT.shape[0]+1)))/(FT.shape[0])
 
 	# Only include frequencies higher than 0.01Hz
 	fincl = np.squeeze(np.array(np.where( f > 0.01 )))
@@ -299,7 +301,7 @@ def feature_frequency(melFTmix, TR):
 	f=f[fincl]
 
 	# Set frequency range to [0-1]
-	f_norm = (f-0.01)/(Ny-0.01);
+	f_norm = (f-0.01)/(Ny-0.01)
 
 	# For every IC; get the cumulative sum as a fraction of the total sum
 	fcumsum_fract = np.cumsum(FT,axis=0)/ np.sum(FT,axis=0)
@@ -517,7 +519,7 @@ def denoising(fslDir, inFile, outDir, melmix, denType, denIdx):
 
 	if check==1:
 		# Put IC indices into a char array
-		denIdxStr = np.char.mod('%i',denIdx)
+		denIdxStr = np.char.mod('%i',(denIdx+1))
 
 		# Non-aggressive denoising of the data using fsl_regfilt (partial regression), if requested
 		if (denType == 'nonaggr') or (denType == 'both'):		

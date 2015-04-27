@@ -14,7 +14,7 @@ os.chdir(scriptDir)
 
 #-------------------------------------------- PARSER --------------------------------------------#
 
-parser = argparse.ArgumentParser(description='Script to run ICA-AROMA v0.2 beta (\'ICA-based Automatic Removal Of Motion Artifacts\') on fMRI data. See the companion manual for further information.')
+parser = argparse.ArgumentParser(description='Script to run ICA-AROMA v0.3 beta (\'ICA-based Automatic Removal Of Motion Artifacts\') on fMRI data. See the companion manual for further information.')
 
 # Required options                    
 reqoptions = parser.add_argument_group('Required arguments')
