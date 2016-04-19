@@ -3,6 +3,7 @@
 aroma.py: filter fmri datasets based on ICA analysis.
 """
 from __future__ import division, print_function
+__version__ = '0.4.0'
 
 import sys
 import os
@@ -17,6 +18,7 @@ import argparse
 import random
 
 import numpy as np
+
 
 # FSL commands and environment
 FSLBINDIR = join(os.environ.get("FSLDIR", '/usr/share/fsl5.0'), 'bin')
@@ -88,8 +90,8 @@ def zsums(filename, mask=None):
     _, tmpfile = mkstemp(prefix='zsums', suffix='.nii.gz')
 
     # Change to absolute Z-values
-    call([FSLMATHS, filename, '-abs', tmpfile])    
-    
+    call([FSLMATHS, filename, '-abs', tmpfile])
+
     preamble = [FSLSTATS, '-t', tmpfile]
     if mask is not None:
         preamble += ['-k', mask]
@@ -145,7 +147,7 @@ def run_ica(infile, outfile, maskfile, t_r, ndims_ica=0, melodic_indir=None, see
         MELODIC directory in case it has been run before
     seed: Optional(unsigned int)
         Seed for RNG in melodic
-        
+
     Returns
     -------
     tuple of numpy arrays
@@ -182,14 +184,14 @@ def run_ica(infile, outfile, maskfile, t_r, ndims_ica=0, melodic_indir=None, see
     # Normally, there will be only one spatial map per file but if the mixture modelling did not converge
     # there will be two, the latter being the results from a simple null hypothesis test and the first one empty.
     # To handle this we'll get the last map from each file.
-    # NB Files created by MELODIC are labelled with integers, base 1, no zero padding ... 
+    # NB Files created by MELODIC are labelled with integers, base 1, no zero padding ...
     ncomponents = nifti_dims(melodic_ics_file)[3]
     zfiles_in  = [join(working_dir, 'stats', 'thresh_zstat%d.nii.gz' % i) for i in range(1, ncomponents+1)]
     zfiles_out = [join(working_dir, 'stats', 'thresh_zstat_fixed%d.nii.gz' % i) for i in range(1, ncomponents+1)]
     for zfile_in, zfile_out in zip(zfiles_in, zfiles_out):
         nmaps = nifti_dims(zfile_in)[3] # will be 1 or 2
-        #             input,      output, first frame (base 0), number of frames 
-        call([FSLROI, zfile_in, zfile_out, '%d' % (nmaps-1), '1'])       
+        #             input,      output, first frame (base 0), number of frames
+        call([FSLROI, zfile_in, zfile_out, '%d' % (nmaps-1), '1'])
 
     # Merge all mixture modelled Z-maps within the output directory (NB: -t => concatenate in time)
     melodic_thr_file = join(working_dir, 'melodic_IC_thr.nii.gz')
@@ -233,7 +235,7 @@ def register_to_mni(infile, outfile, template=FSLMNI52TEMPLATE, affmat=None, war
     -------
     None
 
-    Output 
+    Output
     ------
     File containing the mixture modelling thresholded Z-stat maps registered to 2mm MNI152 template
     """
@@ -271,10 +273,10 @@ def register_to_mni(infile, outfile, template=FSLMNI52TEMPLATE, affmat=None, war
 
 
 def feature_time_series(mix, rparams, seed=None):
-    """Maximum realignment parameters correlation feature scores.
+    """Maximum 'Realignment' parameters correlation feature scores.
 
     Determines the maximum robust correlation of each component time-series with
-    a model of 72 realigment parameters.
+    a model of 72 realignment parameters.
 
     Parameters
     ----------
@@ -317,6 +319,7 @@ def feature_time_series(mix, rparams, seed=None):
     nmixrows, nmixcols = mix.shape
     nrows_to_choose = int(round(0.9 * nmixrows))
 
+    # Max correlations for multiple splits of the dataset (for a robust estimate)
     max_correls = np.empty((nsplits, nmixcols))
     for i in range(nsplits):
         # Select a random subset of 90% of the dataset rows (*without* replacement)
@@ -360,8 +363,7 @@ def feature_frequency(ftmix, t_r):
 
     # Determine which frequencies are associated with every row in the melodic_FTmix file
     # (assuming the rows range from 0Hz to Nyquist)
-    # TODO: RHD: Off by one? is the first row 0Hz or nyquist/n and the last (n-1)/n * nyquist or nyquist?
-    # TODO: - How many rows?
+    # TODO: RHD: How many rows? Off by one? is the first row 0Hz or nyquist/n and the last (n-1)/n * nyquist or nyquist?
     frequencies = nyquist * (np.arange(ftmix.shape[0]) + 1) / ftmix.shape[0]
 
     # Include only frequencies above 0.01 Hz
@@ -370,12 +372,11 @@ def feature_frequency(ftmix, t_r):
 
     # Set frequency range to [0, 1]
     normalised_frequencies = (frequencies - 0.01) / (nyquist - 0.01)
-    
+
     # For every IC; get the cumulative sum as a fraction of the total sum
     fcumsum_fraction = np.cumsum(ftmix, axis=0) / np.sum(ftmix, axis=0)
 
     # Determine the index of the frequency with the fractional cumulative sum closest to 0.5
-    # (RHD: that's a weird way to get a zero crossing)
     index_cutoff = np.argmin((fcumsum_fraction - 0.5)**2, axis=0)
 
     # Now get the fractions associated with those indices index, these are the final feature scores
@@ -419,7 +420,7 @@ def feature_spatial(melodic_ic_file, aroma_dir=None):
 
     edge_fraction = np.where(total_sum > csf_sum, (outside_sum + edge_sum) / (total_sum - csf_sum), 0)
     csf_fraction = np.where(total_sum > csf_sum, csf_sum / total_sum, 0)
-    
+
     return edge_fraction, csf_fraction
 
 
@@ -502,7 +503,7 @@ def save_classification(outdir, max_rp_correl, edge_fraction, hfc, csf_fraction,
         if len(motion_ic_indices) > 0:
             print(','.join(['%.0f' % (idx+1) for idx in motion_ic_indices]), file=file_)
 
-    # Summary overview of the classification, RHD: layout adjusted to be valid tsv
+    # Summary overview of the classification (nb this is *not* valid TSV!)
     is_motion = np.zeros_like(csf_fraction, dtype=bool)
     is_motion[motion_ic_indices] = True
     with open(join(outdir, 'classification_overview.txt'), 'w') as file_:
@@ -585,7 +586,7 @@ def parse_cmdline(args):
 
     parser = argparse.ArgumentParser(
         description=(
-            'ICA-AROMA v0.3beta ("ICA-based Automatic Removal Of Motion Artefacts" on fMRI data).' +
+            ('ICA-AROMA %s ("ICA-based Automatic Removal Of Motion Artefacts" on fMRI data).' % __version__) +
             ' See the companion manual for further information.'))
 
     # Required arguments
@@ -625,9 +626,8 @@ def parse_cmdline(args):
     optionalargs.add_argument(
         '-t', '--denoisetype', dest="denoise_type", default="nonaggr",
         choices=['no', 'nonaggr', 'aggr', 'both'],
-        help=(
-            "Denoising strategy: 'no': classification only; 'nonaggr':" +
-            " non-aggresssive; 'aggr': aggressive; 'both': both (seperately)"))
+        help=("Denoising strategy: 'no': classification only; 'nonaggr':" +
+              " non-aggresssive; 'aggr': aggressive; 'both': both (seperately)"))
     optionalargs.add_argument(
         '-M', '--melodicdir', dest="melodic_dir", default=None, type=valid_indir,
         help='MELODIC directory name if MELODIC has been run previously.')
@@ -735,7 +735,7 @@ def create_mask(infile, outfile, featdir=None):
     assert is_writable_file(outfile)
 
     if featdir is None:
-        # RHD: just binarize stddev of input file?
+        # RHD TODO: just binarize stddev of input file?
         call([FSLMATHS, infile, '-Tstd', '-bin', outfile])
         return
 
@@ -858,6 +858,7 @@ if __name__ == '__main__':
     using_feat = args.featdir is not None
     if using_feat:
         featdir = args.featdir
+
     try:
         infile, mc, affmat, warp, melodic_dir = feat_args(args) if using_feat else nonfeat_args(args)
         outdir, dim, denoise_type, existing_mask, seed = common_args(args)
@@ -871,7 +872,7 @@ if __name__ == '__main__':
             os.makedirs(outdir)
         except OSError as exception:
             logging.critical(
-                "Output directory %s doesn't exist and can't create it (%s). Exiting ...",
+                "Output directory %s doesn't exist and we can't create it (%s). Exiting ...",
                 outdir, str(exception)
             )
             sys.exit(1)
@@ -879,12 +880,12 @@ if __name__ == '__main__':
     # Get TR of the fMRI data, if not specified and check
     TR = args.TR if args.TR is not None else nifti_pixdims(infile)[3]
     if TR == 1.0:
-        logging.warning('TR is exactly 1.0 secs. Please check whether this is correct')
-    elif TR == 0.0:
+        logging.warning('TR is exactly 1.0 secs. Continuing, but check this is correct')
+    elif TR <= 0.0:
         logging.critical(
-            'TR is exactly zero secs. ICA-AROMA requires a valid TR.' +
-            ' Check the header, or define the TR as an additional argument.' +
-            ' Exiting ...'
+            ('TR is zero or less (%f). ' % TR) +
+            'Check the nifti header, or define the TR explicitly as an additional argument.' +
+            'Exiting ...' % TR
         )
         sys.exit(1)
 
@@ -909,3 +910,4 @@ if __name__ == '__main__':
         denoise_type=denoise_type,
         seed=seed
     )
+    sys.exit(0)
