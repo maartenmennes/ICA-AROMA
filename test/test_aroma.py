@@ -7,23 +7,44 @@ from os.path import join, normpath, isfile
 from tempfile import mkstemp, mkdtemp
 import filecmp
 import shutil
+
 import subprocess
+
+def check_output_for_26(*popenargs, **kwargs):
+    """Backported from 2.7 as missing on 2.6"""
+    process = subprocess.Popen(stdout=subprocess.PIPE, *popenargs, **kwargs)
+    output, unused_err = process.communicate()
+    retcode = process.poll()
+    if retcode:
+        cmd = kwargs.get("args")
+        if cmd is None:
+            cmd = popenargs[0]
+        error = subprocess.CalledProcessError(retcode, cmd)
+        error.output = output
+        raise error
+    return output
+if not hasattr(subprocess, 'check_output'):
+    # Monkey patch subprocess
+    subprocess.check_output = check_output_for_26
 
 import numpy as np
 import nibabel as nib
 
 import aroma
 
-# Monkey patching aroma for testing
+# Monkey patch aroma for testing
 aroma.AROMADIR = normpath('..')
+
 def _call(*args, **kwargs):
     #print(' '.join(args[0]), file=sys.stderr)
     subprocess.call(*args, **kwargs)
 def _check_output(*args, **kwargs):
     #print(' '.join(args[0]), file=sys.stderr)
     return subprocess.check_output(*args, **kwargs)
+
 aroma.call = _call
 aroma.check_output = _check_output
+
 
 def setup():
     pass
@@ -196,7 +217,7 @@ def test_denoising():
     aroma.denoising(
         infile='refin/filtered_func_data.nii.gz',
         outfile=outfile,
-        mix=np.loadtxt('out/melodic.ica/melodic_mix'),
+        mix=np.loadtxt('refout/melodic.ica/melodic_mix'),
         denoise_indices=denoise_indices,
         aggressive=False,
     )
@@ -225,7 +246,7 @@ def test_create_mask():
     outfile = join(outdir, 'mask.nii.gz')
     aroma.create_mask(infile='refin/filtered_func_data.nii.gz', outfile=outfile)
 
-    assert filecmp.cmp(outfile, 'refout/mask.nii.gz')
+    assert filecmp.cmp(outfile, 'refin/mask.nii.gz')
     shutil.rmtree(outdir)
 
 
@@ -234,7 +255,7 @@ def test_run_aroma():
     aroma.run_aroma(
         infile='refin/filtered_func_data.nii.gz',
         outdir=outdir,
-        mask='refout/mask.nii.gz',
+        mask='refin/mask.nii.gz',
         dim=0,
         t_r=2.0 ,
         melodic_dir=None,
