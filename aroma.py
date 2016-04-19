@@ -40,6 +40,7 @@ BET        = join(FSLBINDIR, 'bet')
 
 AROMADIR = os.environ.get("AROMADIR", '/usr/local/share/ica-aroma')
 
+
 def is_writable_file(path):
     exists_and_writable = path and isfile(path) and os.access(path, os.W_OK)
     parent = path and (os.path.dirname(path) or os.getcwd())
@@ -116,15 +117,15 @@ def cross_correlation(a, b):
     return np.corrcoef(a.T, b.T)[:ncols_a, ncols_a:]
 
 
-def is_valid_melodic_dir(dirname):
+def is_valid_melodic_dir(dirpath):
     """Check for all the files needed in melodic directory"""
     return (
-        dirname and
-        isdir(dirname) and
-        isfile(join(dirname, 'melodic_IC.nii.gz')) and
-        isfile(join(dirname, 'melodic_mix')) and
-        isfile(join(dirname, 'melodic_FTmix')) and
-        isdir(join(dirname, 'stats'))
+        dirpath and
+        isdir(dirpath) and
+        isfile(join(dirpath, 'melodic_IC.nii.gz')) and
+        isfile(join(dirpath, 'melodic_mix')) and
+        isfile(join(dirpath, 'melodic_FTmix')) and
+        isdir(join(dirpath, 'stats'))
     )
 
 
@@ -167,7 +168,8 @@ def run_ica(infile, outfile, maskfile, t_r, ndims_ica=0, melodic_indir=None, see
         for f in ['melodic_IC.nii.gz', 'melodic_mix', 'melodic_FTmix', 'stats']:
             shutil.copytree(join(melodic_indir, f), join(working_dir, f))
     else:
-        cmdline = [MELODIC, '--in=%s' % infile, '--outdir=%s' % working_dir,
+        cmdline = [
+            MELODIC, '--in=%s' % infile, '--outdir=%s' % working_dir,
             '--mask=%s' % maskfile, '--dim=%d' % ndims_ica,
             '--Ostats', '--nobet', '--mmthresh=0.5', '--report', '--tr=%f' % t_r
         ]
@@ -189,7 +191,7 @@ def run_ica(infile, outfile, maskfile, t_r, ndims_ica=0, melodic_indir=None, see
     zfiles_in  = [join(working_dir, 'stats', 'thresh_zstat%d.nii.gz' % i) for i in range(1, ncomponents+1)]
     zfiles_out = [join(working_dir, 'stats', 'thresh_zstat_fixed%d.nii.gz' % i) for i in range(1, ncomponents+1)]
     for zfile_in, zfile_out in zip(zfiles_in, zfiles_out):
-        nmaps = nifti_dims(zfile_in)[3] # will be 1 or 2
+        nmaps = nifti_dims(zfile_in)[3]  # will be 1 or 2
         #             input,      output, first frame (base 0), number of frames
         call([FSLROI, zfile_in, zfile_out, '%d' % (nmaps-1), '1'])
 
@@ -217,7 +219,7 @@ def register_to_mni(infile, outfile, template=FSLMNI52TEMPLATE, affmat=None, war
     resamples the data to 2mm isotropic if needed (i.e. it assumes that the data has been registered
     to a MNI152 template). In case only an affmat file is specified, it assumes that the data has to be
     linearly registered to MNI152 (i.e. the user has a reason not to use non-linear registration on the data).
-    TODO: RHD this is nasty overloading of meaning of args
+
     Parameters
     ----------
     infile: str
@@ -492,7 +494,8 @@ def save_classification(outdir, max_rp_correl, edge_fraction, hfc, csf_fraction,
     text file containing summary of classification (classification_overview.txt)
     """
     assert is_writable_directory(outdir)
-    assert max(motion_ic_indices) < len(max_rp_correl) == len(edge_fraction) == len(hfc) == len(csf_fraction)
+    assert max(motion_ic_indices) < len(max_rp_correl)
+    assert len(max_rp_correl) == len(edge_fraction) == len(hfc) == len(csf_fraction)
 
     # Feature scores
     np.savetxt(join(outdir, 'feature_scores.txt'),
@@ -508,14 +511,16 @@ def save_classification(outdir, max_rp_correl, edge_fraction, hfc, csf_fraction,
     is_motion[motion_ic_indices] = True
     with open(join(outdir, 'classification_overview.txt'), 'w') as file_:
         print(
-            'IC', 'Motion/noise', 'maximum RP correlation', 'Edge-fraction', '', 'High-frequency content', 'CSF-fraction',
+            'IC', 'Motion/noise', 'maximum RP correlation', 'Edge-fraction',
+            '', 'High-frequency content', 'CSF-fraction',
             sep='\t', file=file_
         )
         for i in range(len(csf_fraction)):
-            print('%d\t%s\t\t%.2f\t\t\t%.2f\t\t\t%.2f\t\t\t%.2f' %
+            print(
+                '%d\t%s\t\t%.2f\t\t\t%.2f\t\t\t%.2f\t\t\t%.2f' %
                     (i+1, is_motion[i], max_rp_correl[i],
                      edge_fraction[i], hfc[i], csf_fraction[i]),
-                  file=file_
+                file=file_
             )
 
 
@@ -578,6 +583,7 @@ def parse_cmdline(args):
             return arg
         else:
             raise argparse.ArgumentTypeError("{0} does not exist".format(arg))
+
     def valid_indir(arg):
         if args is None or os.path.isdir(arg):
             return arg
@@ -595,7 +601,10 @@ def parse_cmdline(args):
 
     # Required arguments in non-Feat mode
     nonfeatargs = parser.add_argument_group('Required arguments - generic mode')
-    nonfeatargs.add_argument('-i', '--in', dest="infile", type=valid_infile, help='Input file name of fMRI data (.nii.gz)')
+    nonfeatargs.add_argument(
+        '-i', '--in', dest="infile", type=valid_infile,
+        help='Input file name of fMRI data (.nii.gz)'
+    )
     nonfeatargs.add_argument(
         '-p', '--motionparams', dest="mc", type=valid_infile,
         help='mc motion correction file eg prefiltered_func_data_mcf.par')
@@ -812,7 +821,10 @@ def run_aroma(infile, outdir, mask, dim, t_r, melodic_dir, affmat, warp, mc, den
 
     logging.info('Step 1) MELODIC')
     melodic_ics_file = join(tempdir, 'thresholded_ics.nii.gz')
-    mix, ftmix = run_ica(infile, outfile=melodic_ics_file, maskfile=mask, t_r=t_r, ndims_ica=dim, melodic_indir=melodic_dir, seed=seed)
+    mix, ftmix = run_ica(
+        infile, outfile=melodic_ics_file, maskfile=mask, t_r=t_r,
+        ndims_ica=dim, melodic_indir=melodic_dir, seed=seed
+    )
 
     logging.info('Step 2) Automatic classification of the components')
     logging.info('  - registering the spatial maps to MNI')
@@ -885,7 +897,7 @@ if __name__ == '__main__':
         logging.critical(
             ('TR is zero or less (%f). ' % TR) +
             'Check the nifti header, or define the TR explicitly as an additional argument.' +
-            'Exiting ...' % TR
+            'Exiting ...'
         )
         sys.exit(1)
 
