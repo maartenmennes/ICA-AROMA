@@ -1,5 +1,5 @@
 # Installs ICA-AROMA to a centos image with FSL pre-installed
-FROM mcin/centos-fsl-5:latest
+FROM mcin/docker-fsl:latest
 
 # Install necessary python packages
 RUN yum update -y; yum clean all
