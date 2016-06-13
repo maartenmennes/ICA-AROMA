@@ -3,13 +3,13 @@
 aroma.py: filter fmri datasets based on ICA analysis.
 """
 from __future__ import division, print_function
-__version__ = '0.4.0'
 
 import sys
 import os
-from os.path import join, isfile, isdir, exists, dirname
+from os.path import join, isfile, isdir, exists
 import shutil
-from glob import glob
+from functools import partial
+
 from tempfile import mkdtemp, mkstemp
 from subprocess import call, check_output, Popen, PIPE
 
@@ -19,6 +19,7 @@ import random
 
 import numpy as np
 
+__version__ = '0.4.0'
 
 # FSL commands and environment
 FSLBINDIR = join(os.environ.get("FSLDIR", '/usr/share/fsl5.0'), 'bin')
@@ -126,6 +127,20 @@ def is_valid_melodic_dir(dirpath):
         isfile(join(dirpath, 'melodic_mix')) and
         isfile(join(dirpath, 'melodic_FTmix')) and
         isdir(join(dirpath, 'stats'))
+    )
+
+
+def is_valid_feat_dir(dirpath):
+    """Check for all the files needed in feat directory"""
+    return (
+        dirpath and
+        isdir(dirpath) and
+        isfile(join(dirpath, 'filtered_func_data.nii.gz')) and
+        isdir(join(dirpath, 'mc')) and
+        isfile(join(dirpath, 'mc', 'prefiltered_func_data_mcf.par')) and
+        isdir(join(dirpath, 'reg')) and
+        isfile(join(dirpath, 'reg', 'example_func2highres.mat')) and
+        isfile(join(dirpath, 'reg', 'highres2standard_warp.nii.gz'))
     )
 
 
@@ -575,20 +590,51 @@ def denoising(infile, outfile, mix, denoise_indices, aggressive=False):
     os.close(fd)
 
 
+def _valid_infile(arg):
+    path = os.path.abspath(os.path.normpath(arg))
+    if not os.path.isfile(path):
+        raise argparse.ArgumentTypeError("%s does not exist or is not a file" % path)
+    return path
+
+def _valid_indir(arg):
+    path = os.path.abspath(os.path.normpath(arg))
+    if not os.path.isdir(path):
+        raise argparse.ArgumentTypeError("%s does not exist or is not a directory" % path)
+    return path
+
+def _valid_outdir(arg):
+    path = os.path.abspath(os.path.normpath(arg))
+    try:
+        os.makedirs(path)
+    except OSError as exception:
+        if not os.path.isdir(path):
+            raise argparse.ArgumentTypeError("%s is not a valid output directory" % path)
+    return path
+
+def _valid_feat_dir(arg):
+    path = os.path.abspath(os.path.normpath(arg))
+    if not is_valid_feat_dir(path):
+        raise argparse.ArgumentTypeError("%s is not a valid feat directory" % path)
+    return path
+
+def _valid_melodic_dir(arg):
+    path = os.path.abspath(os.path.normpath(arg))
+    if not is_valid_melodic_dir(path):
+        raise argparse.ArgumentTypeError("%s is not a valid melodic directory" % path)
+    return path
+
+def _valid_float_in_interval(_min, _max, arg):
+    val = float(arg)
+    if _min <= val <= _max:
+            return val
+    else:
+        raise argparse.ArgumentTypeError("%f is outside interval [%f, %f]" %  (val, _min, _max))
+
+_valid_tr = partial(_valid_float_in_interval, 0.5, 10)
+
 def parse_cmdline(args):
     """Parse command line arguments.
     """
-    def valid_infile(arg):
-        if args is None or os.path.isfile(arg):
-            return arg
-        else:
-            raise argparse.ArgumentTypeError("{0} does not exist".format(arg))
-
-    def valid_indir(arg):
-        if args is None or os.path.isdir(arg):
-            return arg
-        else:
-            raise argparse.ArgumentTypeError("{0} does not exist".format(arg))
 
     parser = argparse.ArgumentParser(
         description=(
@@ -597,48 +643,48 @@ def parse_cmdline(args):
 
     # Required arguments
     requiredargs = parser.add_argument_group('Required arguments')
-    requiredargs.add_argument('-o', '-out', dest="outdir", required=True, help='Output directory name')
+    requiredargs.add_argument('-o', '-out', dest="outdir", required=True, type=_valid_outdir, help='Output directory name')
 
     # Required arguments in non-Feat mode
     nonfeatargs = parser.add_argument_group('Required arguments - generic mode')
     nonfeatargs.add_argument(
-        '-i', '--in', dest="infile", type=valid_infile,
+        '-i', '--in', dest="infile", type=_valid_infile,
         help='Input file name of fMRI data (.nii.gz)'
     )
     nonfeatargs.add_argument(
-        '-p', '--motionparams', dest="mc", type=valid_infile,
+        '-p', '--motionparams', dest="mc", type=_valid_infile,
         help='mc motion correction file eg prefiltered_func_data_mcf.par')
     nonfeatargs.add_argument(
-        '-a', '--affmat', dest="affmat", type=valid_infile,
+        '-a', '--affmat', dest="affmat", type=_valid_infile,
         help=(
             'Mat file of the affine registration (eg FLIRT) of the functional data to structural space.' +
             ' (.mat file eg subj.feat/reg/example_func2highres.mat)'))
     nonfeatargs.add_argument(
-        '-w', '--warp', dest="warp", type=valid_infile,
+        '-w', '--warp', dest="warp", type=_valid_infile,
         help=(
             'Warp file of the non-linear registration (eg FNIRT) of the structural data to MNI152 space .' +
             ' (.nii.gz file eg subj.feat/reg/highres2standard_warp.nii.gz)'))
     nonfeatargs.add_argument(
-        '-m', '--mask', dest="mask", type=valid_infile,
+        '-m', '--mask', dest="mask", type=_valid_infile,
         help='Mask file for MELODIC (denoising will be performed on the original/non-masked input data)')
 
     # Required options in Feat mode
     featargs = parser.add_argument_group('Required arguments - FEAT mode')
     featargs.add_argument(
-        '-f', '--feat', dest="featdir", type=valid_indir,
+        '-f', '--feat', dest="featdir", type=_valid_feat_dir,
         help='Existing Feat folder (Feat should have been run without temporal filtering and including' +
              'registration to MNI152)')
 
     # Optional options
     optionalargs = parser.add_argument_group('Optional arguments')
-    optionalargs.add_argument('--tr', dest="TR", help='TR in seconds', type=float)
+    optionalargs.add_argument('--tr', dest="TR", help='TR in seconds', type=_valid_tr)
     optionalargs.add_argument(
         '-t', '--denoisetype', dest="denoise_type", default="nonaggr",
         choices=['no', 'nonaggr', 'aggr', 'both'],
         help=("Denoising strategy: 'no': classification only; 'nonaggr':" +
               " non-aggresssive; 'aggr': aggressive; 'both': both (seperately)"))
     optionalargs.add_argument(
-        '-M', '--melodicdir', dest="melodic_dir", default=None, type=valid_indir,
+        '-M', '--melodicdir', dest="melodic_dir", default=None, type=_valid_melodic_dir,
         help='MELODIC directory name if MELODIC has been run previously.')
     optionalargs.add_argument(
         '-D', '--dimreduction', dest="dim", default=0, type=int,
@@ -648,40 +694,35 @@ def parse_cmdline(args):
     optionalargs.add_argument(
         '-L', '--log', dest="loglevel", default='INFO', help='Logging Level')
 
-    return parser.parse_args(args)
+    parsed_args = parser.parse_args(args)
+
+    # Either a feat directory or all inputs explicit
+    if parsed_args.featdir is None:
+        if any([parsed_args.infile is None,
+                parsed_args.mc is None,
+                parsed_args.affmat is None,
+                parsed_args.warp is None]):
+            print(
+                'Either a feat directory or separate input image, ' +
+                'motion parameters, affine transform and warp files must specified.',
+                file=sys.stderr)
+            parser.print_help()
+            sys.exit(2)
+
+    return parsed_args
 
 
 def feat_args(args):
     """Check feat directory and return file and directory names to use.
     """
     featdir = args.featdir
-    if not isdir(featdir):
-        logging.critical('The specified Feat directory (%s) does not exist. Exiting ...', featdir)
-        raise ValueError('Feat directory %s does not exist or is not a directory' % featdir)
+    assert is_valid_feat_dir(featdir)
 
-    cancelled = False
-
-    # The names of the input files that should be already present in the Feat directory
+    # The names of the input files that should be already present in the Feat directory as we assume it is valid
     infile = join(featdir, 'filtered_func_data.nii.gz')
     mc = join(featdir, 'mc', 'prefiltered_func_data_mcf.par')
     affmat = join(featdir, 'reg', 'example_func2highres.mat')
     warp = join(featdir, 'reg', 'highres2standard_warp.nii.gz')
-
-    # Check whether these files actually exist
-    if not isfile(infile):
-        logging.error('Missing filtered_func_data.nii.gz in Feat directory.')
-        cancelled = True
-    if not isfile(mc):
-        logging.error('Missing mc/prefiltered_func_data_mcf.mat in Feat directory.')
-        cancelled = True
-    if not isfile(affmat):
-        logging.error('Missing reg/example_func2highres.mat in Feat directory.')
-        cancelled = True
-    if not isfile(warp):
-        logging.error('Missing reg/highres2standard_warp.nii.gz in Feat directory.')
-        cancelled = True
-    if cancelled:
-        raise ValueError('Feat directory %s has missing files' % featdir)
 
     melodic_dir = join(featdir, 'filtered_func_data.ica')
     melodic_dir = melodic_dir if isdir(melodic_dir) else args.melodic_dir
@@ -690,33 +731,15 @@ def feat_args(args):
 
 
 def nonfeat_args(args):
-    """Check explicitly passed file names.
-    """
+    """Check explicitly passed file names."""
     infile = args.infile
     mc = args.mc
     affmat = args.affmat
     warp = args.warp
     melodic_dir = args.melodic_dir
 
-    # Check whether the files exist
-    if infile is None:
-        logging.warning('No input file specified.')
-    elif not isfile(infile):
-        logging.error('The specified input file (%s) does not exist.', infile)
-        raise ValueError('Missing input file')
-    if mc is None:
-        logging.warning('No mc file specified.')
-    elif not isfile(mc):
-        logging.error('The specified mc file (%s) does does not exist.', mc)
-        raise ValueError('Missing Motion Parameter file')
-    if affmat is not None:
-        if not isfile(affmat):
-            logging.error('The specified affmat file (%s) does not exist.', affmat)
-            raise ValueError('Missing Affine matrix file')
-    if warp is not None:
-        if not isfile(warp):
-            logging.error('The specified warp file (%s) does not exist.', warp)
-            raise ValueError('Missing Warp file')
+    assert all(arg is not None for arg in [infile, mc, affmat, warp])
+    assert melodic_dir is None or is_valid_melodic_dir(melodic_dir)
 
     return infile, mc, affmat, warp, melodic_dir
 
@@ -729,11 +752,7 @@ def common_args(args):
     denoise_type = args.denoise_type
     mask = args.mask
     seed = args.seed
-    # Check if the mask exists, when specified.
-    if mask is not None:
-        if not isfile(mask):
-            logging.error('The specified mask %s does not exist.', mask)
-            raise ValueError('Missing Mask file')
+
     return outdir, dim, denoise_type, mask, seed
 
 
@@ -860,6 +879,12 @@ def run_aroma(infile, outdir, mask, dim, t_r, melodic_dir, affmat, warp, mc, den
 
 if __name__ == '__main__':
 
+    import signal
+    def handler(signum, frame):
+        print('Interrupted. Exiting ...', file=sys.stderr)
+        sys.exit(1)
+    signal.signal(signal.SIGINT, handler)
+
     args = parse_cmdline(sys.argv[1:])
 
     level = getattr(logging, args.loglevel.upper(), None)
@@ -875,7 +900,7 @@ if __name__ == '__main__':
         infile, mc, affmat, warp, melodic_dir = feat_args(args) if using_feat else nonfeat_args(args)
         outdir, dim, denoise_type, existing_mask, seed = common_args(args)
     except ValueError as exception:
-        print('%s' % exception, file=sys.stderr)
+        print('%s: %s' % (sys.argv[0], exception), file=sys.stderr)
         sys.exit(1)
 
     # Create output directory if needed
@@ -891,12 +916,10 @@ if __name__ == '__main__':
 
     # Get TR of the fMRI data, if not specified and check
     TR = args.TR if args.TR is not None else nifti_pixdims(infile)[3]
-    if TR == 1.0:
-        logging.warning('TR is exactly 1.0 secs. Continuing, but check this is correct')
-    elif TR <= 0.0:
+    if not (0.5 <= TR <= 10):
         logging.critical(
-            ('TR is zero or less (%f). ' % TR) +
-            'Check the nifti header, or define the TR explicitly as an additional argument.' +
+            ('Unexpected TR value (%f not in [0.5, 10]) found in nifti header. ' % TR) +
+            'Check the header, or define the TR explicitly as an additional argument.' +
             'Exiting ...'
         )
         sys.exit(1)

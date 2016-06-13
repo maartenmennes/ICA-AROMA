@@ -9,6 +9,9 @@ import filecmp
 import shutil
 
 import subprocess
+import argparse
+
+from nose.tools import assert_raises
 
 def check_output_for_26(*popenargs, **kwargs):
     """Backported from 2.7 as missing on 2.6"""
@@ -225,8 +228,142 @@ def test_denoising():
     shutil.rmtree(outdir)
 
 
-def test_parse_cmdline():
-    pass
+def test_parse_cmdline_1():
+    args = [
+        '-i', join("refin", "filtered_func_data.nii.gz"),
+        '-o', join("out"),
+        '-p', join("refin", "mc", "prefiltered_func_data_mcf.par"),
+        '-a', join("refin", "reg", "example_func2highres.mat"),
+        '-w', join("refin", "reg", "highres2standard_warp.nii.gz"),
+        '-s', "31415926"
+    ]
+    parsed_args = aroma.parse_cmdline(args)
+
+    assert parsed_args.infile == join(os.getcwd(), 'refin/filtered_func_data.nii.gz')
+    assert parsed_args.outdir == join(os.getcwd(), 'out')
+    assert parsed_args.mc == join(os.getcwd(), 'refin/mc/prefiltered_func_data_mcf.par')
+    assert parsed_args.affmat == join(os.getcwd(), 'refin/reg/example_func2highres.mat')
+    assert parsed_args.warp == join(os.getcwd(), 'refin/reg/highres2standard_warp.nii.gz')
+    assert parsed_args.seed == 31415926
+
+    assert parsed_args.TR == None
+    assert parsed_args.denoise_type == 'nonaggr'
+    assert parsed_args.dim == 0
+    assert parsed_args.featdir == None
+    assert parsed_args.loglevel == 'INFO'
+    assert parsed_args.mask == None
+    assert parsed_args.melodic_dir == None
+
+
+def test_parse_cmdline_2():
+    # non existent input file
+    args = [
+        '-i', join("ABSENT", "filtered_func_data.nii.gz"),
+        '-o', join("out"),
+        '-p', join("refin", "mc", "prefiltered_func_data_mcf.par"),
+        '-a', join("refin", "reg", "example_func2highres.mat"),
+        '-w', join("refin", "reg", "highres2standard_warp.nii.gz"),
+        '-s', "31415926"
+    ]
+    with assert_raises(SystemExit) as context:
+        aroma.parse_cmdline(args)
+    assert context.exception.code == 2
+
+
+def test_parse_cmdline_3():
+    # no output dir outside feat mode
+    args = [
+        '-i', join("refin", "filtered_func_data.nii.gz"),
+        '-p', join("refin", "mc", "prefiltered_func_data_mcf.par"),
+        '-a', join("refin", "reg", "example_func2highres.mat"),
+        '-w', join("refin", "reg", "highres2standard_warp.nii.gz"),
+        '-s', "31415926"
+    ]
+    with assert_raises(SystemExit) as context:
+        aroma.parse_cmdline(args)
+    assert context.exception.code == 2
+
+
+def test_parse_cmdline_4():
+    # no motion parameters file outside feat mode
+    args = [
+        '-i', join("refin", "filtered_func_data.nii.gz"),
+        '-o', join("out"),
+        '-a', join("refin", "reg", "example_func2highres.mat"),
+        '-w', join("refin", "reg", "highres2standard_warp.nii.gz"),
+        '-s', "31415926"
+    ]
+    with assert_raises(SystemExit) as context:
+        aroma.parse_cmdline(args)
+    assert context.exception.code == 2
+
+
+def test_parse_cmdline_5():
+    # no rigid transform matrix outside feat mode
+    args = [
+        '-i', join("refin", "filtered_func_data.nii.gz"),
+        '-o', join("out"),
+        '-p', join("refin", "mc", "prefiltered_func_data_mcf.par"),
+        '-w', join("refin", "reg", "highres2standard_warp.nii.gz"),
+        '-s', "31415926"
+    ]
+    with assert_raises(SystemExit) as context:
+        aroma.parse_cmdline(args)
+    assert context.exception.code == 2
+
+
+def test_parse_cmdline_6():
+    # no non-linear warp defined outside feat mode
+    args = [
+        '-i', join("ABSENT", "filtered_func_data.nii.gz"),
+        '-o', join("out"),
+        '-p', join("refin", "mc", "prefiltered_func_data_mcf.par"),
+        '-a', join("refin", "reg", "example_func2highres.mat"),
+        '-s', "31415926"
+    ]
+    with assert_raises(SystemExit) as context:
+        aroma.parse_cmdline(args)
+    assert context.exception.code == 2
+
+
+def test_parse_cmdline_7():
+    # illegal T1 value
+    args = [
+        '-i', join("refin", "filtered_func_data.nii.gz"),
+        '-o', join("out"),
+        '-p', join("refin", "mc", "prefiltered_func_data_mcf.par"),
+        '-a', join("refin", "reg", "example_func2highres.mat"),
+        '-w', join("refin", "reg", "highres2standard_warp.nii.gz"),
+        '-s', "31415926",
+        '--tr', "0.2"
+    ]
+    with assert_raises(SystemExit) as context:
+        aroma.parse_cmdline(args)
+    assert context.exception.code == 2
+
+
+def test__valid_infile():
+    valid_file = join("refin", "filtered_func_data.nii.gz")
+    invalid_file = join("refin", "NOSUCH.nii.gz")
+    assert aroma._valid_infile(valid_file) == os.path.abspath(os.path.normpath(valid_file))
+    with assert_raises(argparse.ArgumentTypeError) as context:
+        aroma._valid_infile(invalid_file)
+
+
+def test__valid_indir():
+    valid_dir = "refin"
+    invalid_dir = "NODIR"
+    assert aroma._valid_indir(valid_dir) == os.path.abspath(os.path.normpath(valid_dir))
+    with assert_raises(argparse.ArgumentTypeError) as context:
+        aroma._valid_indir(invalid_dir)
+
+
+def test__valid_float_in_interval():
+    valid_float = 1.0
+    invalid_float = 0.1
+    assert aroma._valid_float_in_interval(0.25, 10, valid_float) == valid_float
+    with assert_raises(argparse.ArgumentTypeError) as context:
+        aroma._valid_float_in_interval(0.25, 10, invalid_float)
 
 
 def test_feat_args():
@@ -289,5 +426,3 @@ def test_run_aroma():
     ), 'File %s numerical mismatch' % f
 
     shutil.rmtree(outdir)
-
-
