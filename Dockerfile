@@ -1,4 +1,7 @@
 # Installs ICA-AROMA to a centos image with FSL pre-installed
+
+# function provided by Tristan A.A., ttaa9 on github
+
 FROM mcin/docker-fsl:latest
 
 # Install necessary python packages
