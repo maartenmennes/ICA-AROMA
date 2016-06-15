@@ -1,6 +1,8 @@
 # Simple wrapper for the ICA-AROMA python scripts, to hand them absolute paths.
 # Required to make the tool work in cbrain via the docker container
 
+# function provided by Tristan A.A., ttaa9 on github
+
 import os, sys
 from subprocess import Popen
 
