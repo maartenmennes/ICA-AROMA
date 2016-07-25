@@ -664,6 +664,8 @@ def parse_cmdline(args):
         help=(
             'Warp file of the non-linear registration (eg FNIRT) of the structural data to MNI152 space .' +
             ' (.nii.gz file eg subj.feat/reg/highres2standard_warp.nii.gz)'))
+
+
     nonfeatargs.add_argument(
         '-m', '--mask', dest="mask", type=_valid_infile,
         help='Mask file for MELODIC (denoising will be performed on the original/non-masked input data)')
@@ -903,16 +905,6 @@ if __name__ == '__main__':
         print('%s: %s' % (sys.argv[0], exception), file=sys.stderr)
         sys.exit(1)
 
-    # Create output directory if needed
-    if not exists(outdir):
-        try:
-            os.makedirs(outdir)
-        except OSError as exception:
-            logging.critical(
-                "Output directory %s doesn't exist and we can't create it (%s). Exiting ...",
-                outdir, str(exception)
-            )
-            sys.exit(1)
 
     # Get TR of the fMRI data, if not specified and check
     TR = args.TR if args.TR is not None else nifti_pixdims(infile)[3]
