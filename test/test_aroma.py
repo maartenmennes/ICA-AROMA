@@ -1,7 +1,7 @@
 from __future__ import print_function, division
 
 import sys
-sys.path.append('..')
+
 import os
 from os.path import join, normpath, isfile
 from tempfile import mkstemp, mkdtemp
@@ -12,6 +12,8 @@ import subprocess
 import argparse
 
 from nose.tools import assert_raises
+
+sys.path.insert(0, normpath('..'))
 
 def check_output_for_26(*popenargs, **kwargs):
     """Backported from 2.7 as missing on 2.6"""
