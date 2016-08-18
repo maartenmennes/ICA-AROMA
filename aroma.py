@@ -623,14 +623,23 @@ def _valid_melodic_dir(arg):
         raise argparse.ArgumentTypeError("%s is not a valid melodic directory" % path)
     return path
 
-def _valid_float_in_interval(_min, _max, arg):
+def _valid_float_in_interval(min_, max_, arg):
     val = float(arg)
-    if _min <= val <= _max:
-            return val
+    if min_ <= val <= max_:
+        return val
     else:
-        raise argparse.ArgumentTypeError("%f is outside interval [%f, %f]" %  (val, _min, _max))
+        raise argparse.ArgumentTypeError("%f is outside interval [%f, %f]" %  (val, min_, max_))
 
 _valid_tr = partial(_valid_float_in_interval, 0.5, 10)
+
+
+def _valid_logging_level(arg):
+    loglevels = ['CRITICAL', 'ERROR', 'WARNING', 'INFO', 'DEBUG', 'NOTSET']
+    if arg.upper() in loglevels:
+        return arg.upper()
+    else:
+        raise argparse.ArgumentTypeError("%s is not a valid loging level" %  arg)
+
 
 def parse_cmdline(args):
     """Parse command line arguments.
@@ -694,7 +703,7 @@ def parse_cmdline(args):
     optionalargs.add_argument(
         '-s', '--seed', dest="seed", default=None, type=int, help='Random number seed')
     optionalargs.add_argument(
-        '-L', '--log', dest="loglevel", default='INFO', help='Logging Level')
+        '-L', '--log', dest="loglevel", default='INFO', type=_valid_logging_level, help='Logging Level')
 
     parsed_args = parser.parse_args(args)
 
@@ -715,7 +724,7 @@ def parse_cmdline(args):
 
 
 def feat_args(args):
-    """Check feat directory and return file and directory names to use.
+    """File and directory names to use from a feat directory.
     """
     featdir = args.featdir
     assert is_valid_feat_dir(featdir)
@@ -733,7 +742,8 @@ def feat_args(args):
 
 
 def nonfeat_args(args):
-    """Check explicitly passed file names."""
+    """File and directory names to use when passed explicitly.
+    """
     infile = args.infile
     mc = args.mc
     affmat = args.affmat
@@ -744,18 +754,6 @@ def nonfeat_args(args):
     assert melodic_dir is None or is_valid_melodic_dir(melodic_dir)
 
     return infile, mc, affmat, warp, melodic_dir
-
-
-def common_args(args):
-    """Extract and check common arguments.
-    """
-    outdir = args.outdir
-    dim = args.dim
-    denoise_type = args.denoise_type
-    mask = args.mask
-    seed = args.seed
-
-    return outdir, dim, denoise_type, mask, seed
 
 
 def create_mask(infile, outfile, featdir=None):
@@ -889,22 +887,17 @@ if __name__ == '__main__':
 
     args = parse_cmdline(sys.argv[1:])
 
-    level = getattr(logging, args.loglevel.upper(), None)
+    level = getattr(logging, args.loglevel, None)
     if level is not None:
         print('Logging Level is %s (%d)' % (args.loglevel, level))
         logging.basicConfig(level=level)
 
     using_feat = args.featdir is not None
-    if using_feat:
-        featdir = args.featdir
-
     try:
         infile, mc, affmat, warp, melodic_dir = feat_args(args) if using_feat else nonfeat_args(args)
-        outdir, dim, denoise_type, existing_mask, seed = common_args(args)
     except ValueError as exception:
         print('%s: %s' % (sys.argv[0], exception), file=sys.stderr)
         sys.exit(1)
-
 
     # Get TR of the fMRI data, if not specified and check
     TR = args.TR if args.TR is not None else nifti_pixdims(infile)[3]
@@ -917,24 +910,24 @@ if __name__ == '__main__':
         sys.exit(1)
 
     mask = join(outdir, 'mask.nii.gz')
-    if existing_mask is not None:
-        shutil.copyfile(src=existing_mask, outfile=mask)
+    if args.existing_mask is not None:
+        shutil.copyfile(src=args.existing_mask, outfile=mask)
     elif using_feat:
-        create_mask(infile, outfile=mask, featdir=featdir)
+        create_mask(infile, outfile=mask, featdir=args.featdir)
     else:
         create_mask(infile, outfile=mask)
 
     run_aroma(
         infile=infile,
-        outdir=outdir,
+        outdir=args.outdir,
         mask=mask,
-        dim=dim,
+        dim=args.dim,
         t_r=TR,
         melodic_dir=melodic_dir,
         affmat=affmat,
         warp=warp,
         mc=mc,
-        denoise_type=denoise_type,
-        seed=seed
+        denoise_type=args.denoise_type,
+        seed=args.seed
     )
     sys.exit(0)
