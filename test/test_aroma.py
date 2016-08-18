@@ -28,6 +28,7 @@ def check_output_for_26(*popenargs, **kwargs):
         error.output = output
         raise error
     return output
+
 if not hasattr(subprocess, 'check_output'):
     # Monkey patch subprocess
     subprocess.check_output = check_output_for_26
@@ -54,8 +55,25 @@ aroma.check_output = _check_output
 def setup():
     pass
  
+
 def teardown():
     pass
+
+
+def test_is_writable_file():
+    assert aroma.is_writable_file('/tmp/gagaga')
+    assert not aroma.is_writable_file(None)
+    assert not aroma.is_writable_file('')
+    assert not aroma.is_writable_file('/nopath/gaga')
+    assert not aroma.is_writable_file('/root/gaga')
+
+
+def test_is_writable_directory():
+    assert aroma.is_writable_directory('/tmp')
+    assert not aroma.is_writable_directory(None)
+    assert not aroma.is_writable_directory('')
+    assert not aroma.is_writable_directory('/nopath')
+    assert not aroma.is_writable_directory('/root')
 
 
 def test_nifti_info():
@@ -71,23 +89,6 @@ def test_nifti_dims():
 def test_nifti_pixdims():
     pixdims = aroma.nifti_pixdims('refin/filtered_func_data.nii.gz')
     assert pixdims == (3.0, 3.0, 3.5, 2.0)
-
-
-def test_is_writable_file():
-    assert aroma.is_writable_file('/tmp/gagaga')
-    assert not aroma.is_writable_file(None)
-    assert not aroma.is_writable_file('')
-    assert not aroma.is_writable_file('/nopath/gaga')
-    assert not aroma.is_writable_file('/root/gaga')
-
-
-
-def test_is_writable_directory():
-    assert aroma.is_writable_directory('/tmp')
-    assert not aroma.is_writable_directory(None)
-    assert not aroma.is_writable_directory('')
-    assert not aroma.is_writable_directory('/nopath')
-    assert not aroma.is_writable_directory('/root')
 
 
 def test_zsums():
@@ -107,6 +108,7 @@ def test_zsums():
 def test_cross_correlation():
     # Using numpy random here shouldn't interfere with stdlib random
     a = np.random.rand(100, 5) - 0.5
+    # permute the columns to give off diagonal correlations
     b = a[:, [0, 2, 4, 3, 1]]
     xcorr = aroma.cross_correlation(a, b)
     expected = np.array([
@@ -125,6 +127,14 @@ def test_is_valid_melodic_dir():
     assert not aroma.is_valid_melodic_dir('')
     assert not aroma.is_valid_melodic_dir('/nopath')
     assert not aroma.is_valid_melodic_dir('/etc')
+
+
+def test_is_valid_feat_dir():
+    assert aroma.is_valid_feat_dir('refin')
+    assert not aroma.is_valid_feat_dir(None)
+    assert not aroma.is_valid_feat_dir('')
+    assert not aroma.is_valid_feat_dir('/nopath')
+    assert not aroma.is_valid_feat_dir('/etc')
 
 
 def test_run_ica():
@@ -389,6 +399,7 @@ def test_create_mask():
     shutil.rmtree(outdir)
 
 
+# Test against previous run with original program
 def test_run_aroma():
     outdir = mkdtemp(prefix='test_run_aroma')
     aroma.run_aroma(
