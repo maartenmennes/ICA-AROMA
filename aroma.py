@@ -62,16 +62,16 @@ def nifti_info(filename, tag):
 
 def nifti_dims(filename):
     """Matrix dimensions of image in nifti file"""
-    return tuple([int(float(nifti_info(filename, 'dim%d' % (i+1)))) for i in range(4)])
+    return tuple([int(float(nifti_info(filename, 'dim%d' % i))) for i in range(1, 5)])
 
 
 def nifti_pixdims(filename):
     """Pixel dimensions of image in nifti file"""
-    return tuple([float(nifti_info(filename, 'pixdim%d' % (i+1))) for i in range(4)])
+    return tuple([float(nifti_info(filename, 'pixdim%d' % i)) for i in range(1, 5)])
 
 
-def zsums(filename, mask=None):
-    """Sum of Z-values within the total Z-map or within a subset defined by a mask.
+def zsums(filename, masks=(None,)):
+    """Sum of Z-values within the total Z-map or within a subset defined by masks.
 
     Calculated via the mean and number of non-zero voxels.
 
@@ -79,12 +79,12 @@ def zsums(filename, mask=None):
     ----------
     filename: str
         zmap nifti file
-    mask: Optional(str)
-        mask file
+    masks: Optional(sequence of str)
+        mask files (None indicates no mask)
 
     Returns
     -------
-    numpy array
+    tuple of numpy arrays
         sums of pixels across the whole images or just within the mask
     """
     assert isfile(filename)
@@ -94,19 +94,22 @@ def zsums(filename, mask=None):
     # Change to absolute Z-values
     call([FSLMATHS, filename, '-abs', tmpfile])
 
-    preamble = [FSLSTATS, '-t', tmpfile]
-    if mask is not None:
-        preamble += ['-k', mask]
-    counts_cmd = preamble + ['-V']
-    means_cmd  = preamble + ['-M']
+    zsums = []
+    for mask in masks:
+        preamble = [FSLSTATS, '-t', tmpfile]
+        if mask is not None:
+            preamble += ['-k', mask]
+        counts_cmd = preamble + ['-V']
+        means_cmd  = preamble + ['-M']
 
-    p = Popen(counts_cmd, stdout=PIPE)
-    counts = np.loadtxt(p.stdout)[:, 0]
-    p = Popen(means_cmd, stdout=PIPE)
-    means = np.loadtxt(p.stdout)
+        p = Popen(counts_cmd, stdout=PIPE)
+        counts = np.loadtxt(p.stdout)[:, 0]
+        p = Popen(means_cmd, stdout=PIPE)
+        means = np.loadtxt(p.stdout)
+        zsums.append(means * counts)
 
     os.unlink(tmpfile)
-    return means * counts
+    return tuple(zsums)
 
 
 def cross_correlation(a, b):
@@ -426,14 +429,13 @@ def feature_spatial(melodic_ic_file, aroma_dir=None):
         aroma_dir = AROMADIR
     assert isdir(aroma_dir)
 
-    edge_mask = join(aroma_dir, 'mask_edge.nii.gz')
     csf_mask  = join(aroma_dir, 'mask_csf.nii.gz')
+    edge_mask = join(aroma_dir, 'mask_edge.nii.gz')
     out_mask  = join(aroma_dir, 'mask_out.nii.gz')
 
-    total_sum = zsums(melodic_ic_file)
-    csf_sum = zsums(melodic_ic_file, mask=csf_mask)
-    edge_sum = zsums(melodic_ic_file, mask=edge_mask)
-    outside_sum = zsums(melodic_ic_file, mask=out_mask)
+    total_sum, csf_sum, edge_sum, outside_sum = zsums(
+        melodic_ic_file, masks=[None, csf_mask, edge_mask, out_mask]
+    )
 
     edge_fraction = np.where(total_sum > csf_sum, (outside_sum + edge_sum) / (total_sum - csf_sum), 0)
     csf_fraction = np.where(total_sum > csf_sum, csf_sum / total_sum, 0)
@@ -901,7 +903,7 @@ if __name__ == '__main__':
 
     # Get TR of the fMRI data, if not specified and check
     TR = args.TR if args.TR is not None else nifti_pixdims(infile)[3]
-    if not (0.5 <= TR <= 10):
+    if args.TR is None and not (0.5 <= TR <= 10):
         logging.critical(
             ('Unexpected TR value (%f not in [0.5, 10]) found in nifti header. ' % TR) +
             'Check the header, or define the TR explicitly as an additional argument.' +

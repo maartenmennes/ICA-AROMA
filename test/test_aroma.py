@@ -91,11 +91,12 @@ def test_nifti_pixdims():
     assert pixdims == (3.0, 3.0, 3.5, 2.0)
 
 
-def test_zsums():
-    total_sum = aroma.zsums('refout/melodic_IC_thr_MNI2mm.nii.gz')
-    edge_sum  = aroma.zsums('refout/melodic_IC_thr_MNI2mm.nii.gz', '../mask_edge.nii.gz')
-    csf_sum   = aroma.zsums('refout/melodic_IC_thr_MNI2mm.nii.gz', '../mask_csf.nii.gz')
-    outside_sum   = aroma.zsums('refout/melodic_IC_thr_MNI2mm.nii.gz', '../mask_out.nii.gz')
+def test_zsums_1():
+    # one at a time
+    total_sum, = aroma.zsums('refout/melodic_IC_thr_MNI2mm.nii.gz')
+    edge_sum,  = aroma.zsums('refout/melodic_IC_thr_MNI2mm.nii.gz', ['../mask_edge.nii.gz'])
+    csf_sum,   = aroma.zsums('refout/melodic_IC_thr_MNI2mm.nii.gz', ['../mask_csf.nii.gz'])
+    outside_sum,   = aroma.zsums('refout/melodic_IC_thr_MNI2mm.nii.gz', ['../mask_out.nii.gz'])
     edge_fractions = np.where(total_sum > csf_sum, (outside_sum + edge_sum) / (total_sum - csf_sum), 0)
     csf_fractions = np.where(total_sum > csf_sum, csf_sum / total_sum, 0)
     assert np.all((0 <= edge_fractions) & (edge_fractions <= 1))
@@ -103,7 +104,28 @@ def test_zsums():
     scores = np.loadtxt('refout/feature_scores.txt').T
     assert ((edge_fractions - scores[1])**2).sum() < 1e-6
     assert ((csf_fractions - scores[3])**2).sum() < 1e-6
-    
+
+
+def test_zsums_2():
+    # all together
+    total_sum, edge_sum, csf_sum, outside_sum = aroma.zsums(
+        'refout/melodic_IC_thr_MNI2mm.nii.gz',
+        [None, '../mask_edge.nii.gz', '../mask_csf.nii.gz', '../mask_out.nii.gz']
+    )
+    edge_fractions = np.where(total_sum > csf_sum, (outside_sum + edge_sum) / (total_sum - csf_sum), 0)
+    csf_fractions = np.where(total_sum > csf_sum, csf_sum / total_sum, 0)
+    assert np.all((0 <= edge_fractions) & (edge_fractions <= 1))
+    assert len(edge_fractions) == len(csf_fractions) == 45
+    scores = np.loadtxt('refout/feature_scores.txt').T
+    assert ((edge_fractions - scores[1])**2).sum() < 1e-6
+    assert ((csf_fractions - scores[3])**2).sum() < 1e-6
+
+
+def test_zsums_3():
+    # behaviour on explicitly empty list of masks - empty tuple
+    empty = aroma.zsums('refout/melodic_IC_thr_MNI2mm.nii.gz', [])
+    assert type(empty) is tuple and len(empty) == 0
+
 
 def test_cross_correlation():
     # Using numpy random here shouldn't interfere with stdlib random
