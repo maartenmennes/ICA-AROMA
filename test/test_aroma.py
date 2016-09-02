@@ -3,7 +3,7 @@ from __future__ import print_function, division
 import sys
 
 import os
-from os.path import join, normpath, isfile
+from os.path import join, normpath, isfile, isdir, dirname
 from tempfile import mkstemp, mkdtemp
 import filecmp
 import shutil
@@ -76,11 +76,13 @@ def test_is_writable_directory():
     assert not aroma.is_writable_directory('/root')
 
 
-def test_nifti_info():
-    dtype = aroma.nifti_info('refin/filtered_func_data.nii.gz', 'data_type')
-    assert dtype == 'FLOAT32'
+def test__find_aroma_dir():
+    aromadir = aroma._find_aroma_dir(aroma.AROMADIR)
+    assert aromadir
+    assert isdir(aromadir)
 
 
+# These now use nibabel by default
 def test_nifti_dims():
     dims = aroma.nifti_dims('refin/filtered_func_data.nii.gz')
     assert dims == (64, 64, 34, 180)
@@ -124,6 +126,58 @@ def test_zsums_2():
 def test_zsums_3():
     # behaviour on explicitly empty list of masks - empty tuple
     empty = aroma.zsums('refout/melodic_IC_thr_MNI2mm.nii.gz', [])
+    assert type(empty) is tuple and len(empty) == 0
+
+
+# FSL fall back versions if no nibabel is not available
+def test_nifti_info_fsl():
+    dtype = aroma._nifti_info_fsl('refin/filtered_func_data.nii.gz', 'data_type')
+    assert dtype == 'FLOAT32'
+
+
+def test_nifti_dims_fsl():
+    dims = aroma._nifti_dims_fsl('refin/filtered_func_data.nii.gz')
+    assert dims == (64, 64, 34, 180)
+
+
+def test_nifti_pixdims_fsl():
+    pixdims = aroma._nifti_pixdims_fsl('refin/filtered_func_data.nii.gz')
+    assert pixdims == (3.0, 3.0, 3.5, 2.0)
+
+
+def test_zsums_fsl_1():
+    # one at a time
+    total_sum, = aroma._zsums_fsl('refout/melodic_IC_thr_MNI2mm.nii.gz')
+    edge_sum,  = aroma._zsums_fsl('refout/melodic_IC_thr_MNI2mm.nii.gz', ['../mask_edge.nii.gz'])
+    csf_sum,   = aroma._zsums_fsl('refout/melodic_IC_thr_MNI2mm.nii.gz', ['../mask_csf.nii.gz'])
+    outside_sum,   = aroma._zsums_fsl('refout/melodic_IC_thr_MNI2mm.nii.gz', ['../mask_out.nii.gz'])
+    edge_fractions = np.where(total_sum > csf_sum, (outside_sum + edge_sum) / (total_sum - csf_sum), 0)
+    csf_fractions = np.where(total_sum > csf_sum, csf_sum / total_sum, 0)
+    assert np.all((0 <= edge_fractions) & (edge_fractions <= 1))
+    assert len(edge_fractions) == len(csf_fractions) == 45
+    scores = np.loadtxt('refout/feature_scores.txt').T
+    assert ((edge_fractions - scores[1])**2).sum() < 1e-6
+    assert ((csf_fractions - scores[3])**2).sum() < 1e-6
+
+
+def test_zsums_fsl_2():
+    # all together
+    total_sum, edge_sum, csf_sum, outside_sum = aroma._zsums_fsl(
+        'refout/melodic_IC_thr_MNI2mm.nii.gz',
+        [None, '../mask_edge.nii.gz', '../mask_csf.nii.gz', '../mask_out.nii.gz']
+    )
+    edge_fractions = np.where(total_sum > csf_sum, (outside_sum + edge_sum) / (total_sum - csf_sum), 0)
+    csf_fractions = np.where(total_sum > csf_sum, csf_sum / total_sum, 0)
+    assert np.all((0 <= edge_fractions) & (edge_fractions <= 1))
+    assert len(edge_fractions) == len(csf_fractions) == 45
+    scores = np.loadtxt('refout/feature_scores.txt').T
+    assert ((edge_fractions - scores[1])**2).sum() < 1e-6
+    assert ((csf_fractions - scores[3])**2).sum() < 1e-6
+
+
+def test_zsums_fsl_3():
+    # behaviour on explicitly empty list of masks - empty tuple
+    empty = aroma._zsums_fsl('refout/melodic_IC_thr_MNI2mm.nii.gz', [])
     assert type(empty) is tuple and len(empty) == 0
 
 

@@ -6,7 +6,7 @@ from __future__ import division, print_function
 
 import sys
 import os
-from os.path import join, isfile, isdir, exists
+from os.path import join, isfile, isdir, exists, expanduser, dirname
 import shutil
 from functools import partial
 
@@ -22,8 +22,8 @@ import numpy as np
 __version__ = '0.4.0'
 
 # FSL commands and environment
-FSLBINDIR = join(os.environ.get("FSLDIR", '/usr/share/fsl5.0'), 'bin')
-FSLTEMPLATEDIR = join(os.environ.get("FSLDIR", '/usr/share/fsl5.0'), 'data', 'standard')
+FSLBINDIR = join(os.environ.get("FSLDIR", '/usr/share/fsl/5.0'), 'bin')
+FSLTEMPLATEDIR = join(os.environ.get("FSLDIR", '/usr/share/fsl/5.0'), 'data', 'standard')
 
 # MNI152 T1 2mm template file
 FSLMNI52TEMPLATE = join(FSLTEMPLATEDIR, 'MNI152_T1_2mm_brain.nii.gz')
@@ -39,7 +39,7 @@ FSLSTATS   = join(FSLBINDIR, 'fslstats')
 FSLREGFILT = join(FSLBINDIR, 'fsl_regfilt')
 BET        = join(FSLBINDIR, 'bet')
 
-AROMADIR = os.environ.get("AROMADIR", '/usr/local/share/ica-aroma')
+AROMADIR = os.environ.get("AROMADIR", '/usr/share/aroma')
 
 
 def is_writable_file(path):
@@ -53,25 +53,25 @@ def is_writable_directory(path):
     return path and isdir(path) and os.access(path, os.W_OK)
 
 
-def nifti_info(filename, tag):
-    """Extract value of tag from nifti header of file"""
+def _nifti_info_fsl(filename, tag):
+    """Extract value of tag from nifti header of file using fsl"""
     info = check_output([FSLINFO, filename], universal_newlines=True)
     fields = [line for line in info.split('\n') if line.startswith(tag)][0].split()
     return fields[-1]
 
 
-def nifti_dims(filename):
-    """Matrix dimensions of image in nifti file"""
-    return tuple([int(float(nifti_info(filename, 'dim%d' % i))) for i in range(1, 5)])
+def _nifti_dims_fsl(filename):
+    """Matrix dimensions of image in nifti file (fsl version)"""
+    return tuple([int(float(_nifti_info_fsl(filename, 'dim%d' % i))) for i in range(1, 5)])
 
 
-def nifti_pixdims(filename):
-    """Pixel dimensions of image in nifti file"""
-    return tuple([float(nifti_info(filename, 'pixdim%d' % i)) for i in range(1, 5)])
+def _nifti_pixdims_fsl(filename):
+    """Pixel dimensions of image in nifti file (fsl version)"""
+    return tuple([float(_nifti_info_fsl(filename, 'pixdim%d' % i)) for i in range(1, 5)])
 
 
-def zsums(filename, masks=(None,)):
-    """Sum of Z-values within the total Z-map or within a subset defined by masks.
+def _zsums_fsl(filename, masks=(None,)):
+    """Sum of Z-values within the total Z-map or within a subset defined by masks (fsl version)
 
     Calculated via the mean and number of non-zero voxels.
 
@@ -112,6 +112,56 @@ def zsums(filename, masks=(None,)):
     return tuple(zsums)
 
 
+def _nifti_dims_nibabel(filename):
+    """Matrix dimensions of image in nifti file (nibabel version)"""
+    return tuple(nib.load(filename).header['dim'][1:5])
+
+
+def _nifti_pixdims_nibabel(filename):
+    """Pixel dimensions of image in nifti file (nibabel version)"""
+    return tuple(nib.load(filename).header['pixdim'][1:5])
+
+
+def _zsums_nibabel(filename, masks=(None,)):
+    """Sum of Z-values within the total Z-map or within a subset defined by a mask (nibabel version).
+
+    Calculated via the mean and number of non-zero voxels.
+
+    Parameters
+    ----------
+    filename: str
+        zmap nifti file
+    masks: Optional(sequence of str)
+        mask files (None indicates no mask)
+
+    Returns
+    -------
+    tuple of numpy arrays
+        sums of pixels across the whole images or just within the mask
+    """
+    assert isfile(filename)
+
+    img = np.abs(nib.load(filename).get_data())
+    maskarrays = [
+        nib.load(fname).get_data().astype('bool')[..., None] if fname is not None else np.ones_like(img)
+        for fname in masks
+    ]
+    zsums = [(img * mask).sum(axis=(0, 1, 2)) for mask in maskarrays]
+
+    return tuple(zsums)
+
+
+try:
+    import nibabel as nib
+    nifti_dims = _nifti_dims_nibabel
+    nifti_pixdims = _nifti_pixdims_nibabel
+    zsums = _zsums_nibabel
+except ImportError:
+    nifti_dims = _nifti_dims_fsl
+    nifti_pixdims = _nifti_pixdims_fsl
+    zsums = _zsums_fsl
+
+
 def cross_correlation(a, b):
     """Cross Correlations between columns of two matrices"""
     assert a.ndim == b.ndim == 2
@@ -145,6 +195,26 @@ def is_valid_feat_dir(dirpath):
         isfile(join(dirpath, 'reg', 'example_func2highres.mat')) and
         isfile(join(dirpath, 'reg', 'highres2standard_warp.nii.gz'))
     )
+
+
+def _find_aroma_dir(aromadir=None):
+    """Find location of aroma directory with mask files"""
+    locations = [
+        '/usr/share/aroma',
+        '/usr/local/share/aroma',
+        join(expanduser('~'), '.local', 'share', 'aroma'),
+        dirname(__file__),
+        os.getcwd()
+    ]
+    if aromadir is not None:
+        locations.insert(0, aromadir)
+
+    testfile = 'mask_csf.nii.gz'
+
+    for location in locations:
+        if isdir(location) and isfile(join(location, testfile)):
+            return location
+    return None
 
 
 def run_ica(infile, outfile, maskfile, t_r, ndims_ica=0, melodic_indir=None, seed=None):
@@ -865,13 +935,12 @@ def run_aroma(infile, outdir, mask, dim, t_r, melodic_dir, affmat, warp, mc, den
     motion_ic_indices = classification(max_rp_correl, edge_fraction, hfc, csf_fraction)
 
     logging.info('Step 3) Data denoising')
-    if denoise_type in ['nonaggr', 'aggr', 'both']:
-        if denoise_type in ['nonaggr', 'both']:
-            outfile = join(outdir, 'denoised_func_data_nonaggr.nii.gz')
-            denoising(infile, outfile, mix, motion_ic_indices, aggressive=False)
-        if denoise_type in ['aggr', 'both']:
-            outfile = join(outdir, 'denoised_func_data_aggr.nii.gz')
-            denoising(infile, outfile, mix, motion_ic_indices, aggressive=True)
+    if denoise_type in ['nonaggr', 'both']:
+        outfile = join(outdir, 'denoised_func_data_nonaggr.nii.gz')
+        denoising(infile, outfile, mix, motion_ic_indices, aggressive=False)
+    if denoise_type in ['aggr', 'both']:
+        outfile = join(outdir, 'denoised_func_data_aggr.nii.gz')
+        denoising(infile, outfile, mix, motion_ic_indices, aggressive=True)
 
     shutil.rmtree(tempdir)
 
@@ -918,6 +987,15 @@ if __name__ == '__main__':
         create_mask(infile, outfile=mask, featdir=args.featdir)
     else:
         create_mask(infile, outfile=mask)
+
+    global AROMADIR
+    AROMADIR =_find_aroma_dir(AROMADIR)
+    if AROMADIR is None:
+        logging.critical(
+            'Unable to find aroma data directory with mask files. ' +
+            'Exiting ...'
+        )
+        sys.exit(1)
 
     run_aroma(
         infile=infile,
