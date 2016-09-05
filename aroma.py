@@ -11,13 +11,15 @@ import shutil
 from functools import partial
 
 from tempfile import mkdtemp, mkstemp
-from subprocess import call, check_output, Popen, PIPE
+from subprocess import call
 
 import logging
 import argparse
 import random
 
 import numpy as np
+from numpy.linalg import pinv
+import nibabel as nib
 
 __version__ = '0.4.0'
 
@@ -28,15 +30,12 @@ FSLTEMPLATEDIR = join(os.environ.get("FSLDIR", '/usr/share/fsl/5.0'), 'data', 's
 # MNI152 T1 2mm template file
 FSLMNI52TEMPLATE = join(FSLTEMPLATEDIR, 'MNI152_T1_2mm_brain.nii.gz')
 
-FSLINFO    = join(FSLBINDIR, 'fslinfo')
 MELODIC    = join(FSLBINDIR, 'melodic')
 FSLROI     = join(FSLBINDIR, 'fslroi')
 FSLMERGE   = join(FSLBINDIR, 'fslmerge')
 FSLMATHS   = join(FSLBINDIR, 'fslmaths')
 FLIRT      = join(FSLBINDIR, 'flirt')
 APPLYWARP  = join(FSLBINDIR, 'applywarp')
-FSLSTATS   = join(FSLBINDIR, 'fslstats')
-FSLREGFILT = join(FSLBINDIR, 'fsl_regfilt')
 BET        = join(FSLBINDIR, 'bet')
 
 AROMADIR = os.environ.get("AROMADIR", '/usr/share/aroma')
@@ -53,77 +52,18 @@ def is_writable_directory(path):
     return path and isdir(path) and os.access(path, os.W_OK)
 
 
-def _nifti_info_fsl(filename, tag):
-    """Extract value of tag from nifti header of file using fsl"""
-    info = check_output([FSLINFO, filename], universal_newlines=True)
-    fields = [line for line in info.split('\n') if line.startswith(tag)][0].split()
-    return fields[-1]
-
-
-def _nifti_dims_fsl(filename):
-    """Matrix dimensions of image in nifti file (fsl version)"""
-    return tuple([int(float(_nifti_info_fsl(filename, 'dim%d' % i))) for i in range(1, 5)])
-
-
-def _nifti_pixdims_fsl(filename):
-    """Pixel dimensions of image in nifti file (fsl version)"""
-    return tuple([float(_nifti_info_fsl(filename, 'pixdim%d' % i)) for i in range(1, 5)])
-
-
-def _zsums_fsl(filename, masks=(None,)):
-    """Sum of Z-values within the total Z-map or within a subset defined by masks (fsl version)
-
-    Calculated via the mean and number of non-zero voxels.
-
-    Parameters
-    ----------
-    filename: str
-        zmap nifti file
-    masks: Optional(sequence of str)
-        mask files (None indicates no mask)
-
-    Returns
-    -------
-    tuple of numpy arrays
-        sums of pixels across the whole images or just within the mask
-    """
-    assert isfile(filename)
-
-    _, tmpfile = mkstemp(prefix='zsums', suffix='.nii.gz')
-
-    # Change to absolute Z-values
-    call([FSLMATHS, filename, '-abs', tmpfile])
-
-    zsums = []
-    for mask in masks:
-        preamble = [FSLSTATS, '-t', tmpfile]
-        if mask is not None:
-            preamble += ['-k', mask]
-        counts_cmd = preamble + ['-V']
-        means_cmd  = preamble + ['-M']
-
-        p = Popen(counts_cmd, stdout=PIPE)
-        counts = np.loadtxt(p.stdout)[:, 0]
-        p = Popen(means_cmd, stdout=PIPE)
-        means = np.loadtxt(p.stdout)
-        zsums.append(means * counts)
-
-    os.unlink(tmpfile)
-    return tuple(zsums)
-
-
-def _nifti_dims_nibabel(filename):
-    """Matrix dimensions of image in nifti file (nibabel version)"""
+def nifti_dims(filename):
+    """Matrix dimensions of image in nifti file"""
     return tuple(nib.load(filename).header['dim'][1:5])
 
 
-def _nifti_pixdims_nibabel(filename):
-    """Pixel dimensions of image in nifti file (nibabel version)"""
+def nifti_pixdims(filename):
+    """Pixel dimensions of image in nifti file"""
     return tuple(nib.load(filename).header['pixdim'][1:5])
 
 
-def _zsums_nibabel(filename, masks=(None,)):
-    """Sum of Z-values within the total Z-map or within a subset defined by a mask (nibabel version).
+def zsums(filename, masks=(None,)):
+    """Sum of Z-values within the total Z-map or within a subset defined by a mask.
 
     Calculated via the mean and number of non-zero voxels.
 
@@ -151,17 +91,6 @@ def _zsums_nibabel(filename, masks=(None,)):
     return tuple(zsums)
 
 
-try:
-    import nibabel as nib
-    nifti_dims = _nifti_dims_nibabel
-    nifti_pixdims = _nifti_pixdims_nibabel
-    zsums = _zsums_nibabel
-except ImportError:
-    nifti_dims = _nifti_dims_fsl
-    nifti_pixdims = _nifti_pixdims_fsl
-    zsums = _zsums_fsl
-
-
 def cross_correlation(a, b):
     """Cross Correlations between columns of two matrices"""
     assert a.ndim == b.ndim == 2
@@ -169,6 +98,67 @@ def cross_correlation(a, b):
     # nb variables in columns rather than rows hence transpose
     # extract just the cross terms between cols in a and cols in b
     return np.corrcoef(a.T, b.T)[:ncols_a, ncols_a:]
+
+
+def reg_filter(data, design, components, aggressive=False, mask=True):
+    """Filter functional data by regressing out noise components.
+       A replacement for `fsl_regfilt`.
+
+    Parameters
+    ----------
+    data: rank 4 numpy array
+        Input data file to be denoised organised (nt, nz, ny, nz) and c-contiguous
+    design: rank 2 numpy array
+        design (or melodic mixing) matrix organised (nt, nc) and c-contiguous
+    denoise_indices: sequence of integers
+        Indices of the components that should be regressed out
+    aggressive: bool
+        Whether to do aggressive denoising
+    mask: bool
+        Whether to mask out low intensity voxels
+    Returns
+    -------
+    rank 4 numpy array of filtered functional data
+
+    """
+
+    nt, nz, ny, nx = data.shape
+    ntd, nc = design.shape
+    components = sorted(set(components))
+
+    assert ntd == nt
+    assert data.flags['C_CONTIGUOUS']
+
+    assert components and all(0 <= i < nc for i in components)
+
+
+    # mask out background voxels at less then 1%
+    if mask:
+        mean_image = data.mean(axis=0)
+        min_, max_ = mean_image.min(), mean_image.max()
+        mask = mean_image > (min_ + (max_ - min_) / 100)
+        data *= mask[None, :]
+
+    # flatten image volumes so we can treat as ordinary matrix
+    data = data.reshape((nt, -1))
+    
+    # de-mean data and model
+    data_means = data.mean(axis=0)
+    data = data - data_means
+    design = design - design.mean(axis=0)
+
+    # noise components of design
+    noise_design = design[:, components]
+
+    if aggressive:
+        maps = pinv(noise_design).dot(data)
+    else:
+        maps = pinv(design).dot(data)[components]
+
+    filtered_data = data - noise_design.dot(maps) + data_means
+
+    # restore shape of image
+    return filtered_data.reshape((nt, nz, ny, nx))
 
 
 def is_valid_melodic_dir(dirpath):
@@ -612,7 +602,7 @@ def save_classification(outdir, max_rp_correl, edge_fraction, hfc, csf_fraction,
 
 
 def denoising(infile, outfile, mix, denoise_indices, aggressive=False):
-    """Apply reg_filt ica denoising using the specified components
+    """Apply ica denoising using the specified components
 
     Parameters
     ----------
@@ -630,36 +620,19 @@ def denoising(infile, outfile, mix, denoise_indices, aggressive=False):
     -------
     None
 
-    Output (within the requested output directory)
+    Output
     ------
-    A nii.gz file of the denoised fMRI data (denoised_func_data_<denoise_type>.nii.gz) in outdir
+    A nii.gz format file of the denoised fMRI data
     """
-    assert isfile(infile)
-    assert is_writable_file(outfile)
-    assert mix.ndim == 2
+    nii = nib.load(infile)
+    if len(denoise_indices) < 1:
+        nib.save(nii, outfile)
+        return
 
-    fd, melmix_file = mkstemp(prefix='denoising', suffix='.txt')
-    np.savetxt(melmix_file, mix)
-
-    if len(denoise_indices) > 0:
-        index_list = ','.join(['%d' % (i+1) for i in denoise_indices])
-        regfilt_args = [
-            '--in=' + infile, '--design=' + melmix_file,
-            '--filter=%s' % index_list,
-            '--out=' + outfile
-        ]
-        if aggressive:
-            regfilt_args.append('-a')
-        call([FSLREGFILT] + regfilt_args)
-    else:
-        logging.warning(
-            "denoising: None of the components was classified as motion, so no denoising was applied" +
-            "(a copy of the input file has been made)."
-        )
-        shutil.copyfile(infile, outfile)
-
-    os.unlink(melmix_file)
-    os.close(fd)
+    data = nii.get_data().T
+    # a bit icky but seems to be the standard way to write data back to a nifti image
+    nii.get_data()[:] = reg_filter(data, design=mix, components=denoise_indices, aggressive=aggressive).T
+    nib.save(nii, outfile)
 
 
 def _valid_infile(arg):
@@ -905,9 +878,6 @@ def run_aroma(infile, outdir, mask, dim, t_r, melodic_dir, affmat, warp, mc, den
     assert isfile(mc)
     assert denoise_type in ['none', 'aggr', 'nonaggr', 'both']
 
-    logging.info("------------------------------- RUNNING ICA-AROMA ------------------------------- ")
-    logging.info("--------------- 'ICA-based Automatic Removal Of Motion Artefacts' --------------- ")
-
     tempdir = mkdtemp(prefix='run_aroma')
 
     logging.info('Step 1) MELODIC')
@@ -918,20 +888,13 @@ def run_aroma(infile, outdir, mask, dim, t_r, melodic_dir, affmat, warp, mc, den
     )
 
     logging.info('Step 2) Automatic classification of the components')
-    logging.info('  - registering the spatial maps to MNI')
     melodic_ics_file_mni = join(tempdir, 'melodic_IC_thr_MNI2mm.nii.gz')
     register_to_mni(melodic_ics_file, melodic_ics_file_mni, affmat=affmat, warp=warp)
 
-    logging.info('  - extracting the CSF & Edge fraction features')
     edge_fraction, csf_fraction = feature_spatial(melodic_ics_file_mni)
-
-    logging.info('  - extracting the Maximum RP correlation feature')
     max_rp_correl = feature_time_series(mix=mix, rparams=np.loadtxt(mc), seed=seed)
-
-    logging.info('  - extracting the High-frequency content feature')
     hfc = feature_frequency(ftmix, t_r=t_r)
 
-    logging.info('  - classification')
     motion_ic_indices = classification(max_rp_correl, edge_fraction, hfc, csf_fraction)
 
     logging.info('Step 3) Data denoising')

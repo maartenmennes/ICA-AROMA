@@ -15,24 +15,6 @@ from nose.tools import assert_raises
 
 sys.path.insert(0, normpath('..'))
 
-def check_output_for_26(*popenargs, **kwargs):
-    """Backported from 2.7 as missing on 2.6"""
-    process = subprocess.Popen(stdout=subprocess.PIPE, *popenargs, **kwargs)
-    output, unused_err = process.communicate()
-    retcode = process.poll()
-    if retcode:
-        cmd = kwargs.get("args")
-        if cmd is None:
-            cmd = popenargs[0]
-        error = subprocess.CalledProcessError(retcode, cmd)
-        error.output = output
-        raise error
-    return output
-
-if not hasattr(subprocess, 'check_output'):
-    # Monkey patch subprocess
-    subprocess.check_output = check_output_for_26
-
 import numpy as np
 import nibabel as nib
 
@@ -44,13 +26,8 @@ aroma.AROMADIR = normpath('..')
 def _call(*args, **kwargs):
     #print(' '.join(args[0]), file=sys.stderr)
     subprocess.call(*args, **kwargs)
-def _check_output(*args, **kwargs):
-    #print(' '.join(args[0]), file=sys.stderr)
-    return subprocess.check_output(*args, **kwargs)
 
 aroma.call = _call
-aroma.check_output = _check_output
-
 
 def setup():
     pass
@@ -129,56 +106,26 @@ def test_zsums_3():
     assert type(empty) is tuple and len(empty) == 0
 
 
-# FSL fall back versions if no nibabel is not available
-def test_nifti_info_fsl():
-    dtype = aroma._nifti_info_fsl('refin/filtered_func_data.nii.gz', 'data_type')
-    assert dtype == 'FLOAT32'
+def test_reg_filter_1():
+    data = nib.load('refin/filtered_func_data.nii.gz').get_data()
+    design = np.loadtxt('refout/melodic.ica/melodic_mix')
+    indices = list(np.loadtxt('refout/classified_motion_ICs.txt', dtype=int, delimiter=',') - 1)
+    
+    filtered_data = aroma.reg_filter(data.T, design, indices, aggressive=False).T
+    ref_filter_data = nib.load('refout/denoised_func_data_nonaggr.nii.gz').get_data()
+
+    assert np.allclose(filtered_data, ref_filter_data, rtol=1e-06, atol=1e-03)
 
 
-def test_nifti_dims_fsl():
-    dims = aroma._nifti_dims_fsl('refin/filtered_func_data.nii.gz')
-    assert dims == (64, 64, 34, 180)
+def test_reg_filter_2():
+    data = nib.load('refin/filtered_func_data.nii.gz').get_data()
+    design = np.loadtxt('refout/melodic.ica/melodic_mix')
+    indices = list(np.loadtxt('refout/classified_motion_ICs.txt', dtype=int, delimiter=',') - 1)
+    
+    filtered_data = aroma.reg_filter(data.T, design, indices, aggressive=True).T
+    ref_filter_data = nib.load('refout/denoised_func_data_aggr.nii.gz').get_data()
 
-
-def test_nifti_pixdims_fsl():
-    pixdims = aroma._nifti_pixdims_fsl('refin/filtered_func_data.nii.gz')
-    assert pixdims == (3.0, 3.0, 3.5, 2.0)
-
-
-def test_zsums_fsl_1():
-    # one at a time
-    total_sum, = aroma._zsums_fsl('refout/melodic_IC_thr_MNI2mm.nii.gz')
-    edge_sum,  = aroma._zsums_fsl('refout/melodic_IC_thr_MNI2mm.nii.gz', ['../mask_edge.nii.gz'])
-    csf_sum,   = aroma._zsums_fsl('refout/melodic_IC_thr_MNI2mm.nii.gz', ['../mask_csf.nii.gz'])
-    outside_sum,   = aroma._zsums_fsl('refout/melodic_IC_thr_MNI2mm.nii.gz', ['../mask_out.nii.gz'])
-    edge_fractions = np.where(total_sum > csf_sum, (outside_sum + edge_sum) / (total_sum - csf_sum), 0)
-    csf_fractions = np.where(total_sum > csf_sum, csf_sum / total_sum, 0)
-    assert np.all((0 <= edge_fractions) & (edge_fractions <= 1))
-    assert len(edge_fractions) == len(csf_fractions) == 45
-    scores = np.loadtxt('refout/feature_scores.txt').T
-    assert ((edge_fractions - scores[1])**2).sum() < 1e-6
-    assert ((csf_fractions - scores[3])**2).sum() < 1e-6
-
-
-def test_zsums_fsl_2():
-    # all together
-    total_sum, edge_sum, csf_sum, outside_sum = aroma._zsums_fsl(
-        'refout/melodic_IC_thr_MNI2mm.nii.gz',
-        [None, '../mask_edge.nii.gz', '../mask_csf.nii.gz', '../mask_out.nii.gz']
-    )
-    edge_fractions = np.where(total_sum > csf_sum, (outside_sum + edge_sum) / (total_sum - csf_sum), 0)
-    csf_fractions = np.where(total_sum > csf_sum, csf_sum / total_sum, 0)
-    assert np.all((0 <= edge_fractions) & (edge_fractions <= 1))
-    assert len(edge_fractions) == len(csf_fractions) == 45
-    scores = np.loadtxt('refout/feature_scores.txt').T
-    assert ((edge_fractions - scores[1])**2).sum() < 1e-6
-    assert ((csf_fractions - scores[3])**2).sum() < 1e-6
-
-
-def test_zsums_fsl_3():
-    # behaviour on explicitly empty list of masks - empty tuple
-    empty = aroma._zsums_fsl('refout/melodic_IC_thr_MNI2mm.nii.gz', [])
-    assert type(empty) is tuple and len(empty) == 0
+    assert np.allclose(filtered_data, ref_filter_data, rtol=1e-06, atol=1e-03)
 
 
 def test_cross_correlation():
@@ -301,7 +248,7 @@ def test_save_classification():
     shutil.rmtree(outdir)
 
 
-def test_denoising():
+def test_denoising_1():
     outdir = mkdtemp(prefix='test_denoising')
     outfile = join(outdir, 'nonaggr_test.nii.gz')
     denoise_indices = list(np.loadtxt('refout/classified_motion_ICs.txt', delimiter=',').astype(int) - 1)
@@ -312,7 +259,47 @@ def test_denoising():
         denoise_indices=denoise_indices,
         aggressive=False,
     )
-    assert filecmp.cmp(outfile, 'refout/denoised_func_data_nonaggr.nii.gz')
+    assert np.allclose(
+        nib.load(outfile).get_data(),
+        nib.load('refout/denoised_func_data_nonaggr.nii.gz').get_data(),
+        rtol=1e-06, atol=1e-03
+    )
+    shutil.rmtree(outdir)
+
+
+def test_denoising_2():
+    outdir = mkdtemp(prefix='test_denoising')
+    outfile = join(outdir, 'aggr_test.nii.gz')
+    denoise_indices = list(np.loadtxt('refout/classified_motion_ICs.txt', delimiter=',').astype(int) - 1)
+    aroma.denoising(
+        infile='refin/filtered_func_data.nii.gz',
+        outfile=outfile,
+        mix=np.loadtxt('refout/melodic.ica/melodic_mix'),
+        denoise_indices=denoise_indices,
+        aggressive=True,
+    )
+    assert np.allclose(
+        nib.load(outfile).get_data(),
+        nib.load('refout/denoised_func_data_aggr.nii.gz').get_data(),
+        rtol=1e-06, atol=1e-03
+    )
+    shutil.rmtree(outdir)
+
+
+def test_denoising_3():
+    outdir = mkdtemp(prefix='test_denoising')
+    outfile = join(outdir, 'nochange.nii.gz')
+    aroma.denoising(
+        infile='refin/filtered_func_data.nii.gz',
+        outfile=outfile,
+        mix=np.loadtxt('refout/melodic.ica/melodic_mix'),
+        denoise_indices=[],
+        aggressive=False,
+    )
+    assert np.allclose(
+        nib.load(outfile).get_data(),
+        nib.load('refin/filtered_func_data.nii.gz').get_data()
+    )
     shutil.rmtree(outdir)
 
 
@@ -494,7 +481,6 @@ def test_run_aroma():
 
 
     files_to_check_exact = [
-        'denoised_func_data_nonaggr.nii.gz',
         'classification_overview.txt',
     ]
     for f in files_to_check_exact:
@@ -513,5 +499,13 @@ def test_run_aroma():
         np.loadtxt(join(outdir, f)),
         np.loadtxt(join('refout', f))
     ), 'File %s numerical mismatch' % f
+
+    f = 'denoised_func_data_nonaggr.nii.gz'
+    assert np.allclose(
+        nib.load(join(outdir, f)).get_data(),
+        nib.load(join('refout', f)).get_data(),
+        rtol=1e-06, atol=1e-03
+    ), 'File %s numerical mismatch' % f
+
 
     shutil.rmtree(outdir)

@@ -9,11 +9,11 @@ ICA-AROMA (*ICA-based Automatic Removal Of Motion Artifacts*) is a data-driven m
 1) port to python 3
 2) general refactor
 3) speed up and simplify feature calculations
-3) add test harness
+3) add test harness (nose)
 4) remove restrictions due to irregular path handling
-5) use nibabel where available
+5) use nibabel for accessing nifti file info
 6) move documentation to markdown
-7) 
+7) replace `fsl_regfilt` with an internal routine
 
 ### 0.2-beta to v0.3-beta
 1) Correct for incorrect definition of the string of indices of the components to be removed by *fsl_regfilt*:
@@ -33,3 +33,13 @@ ICA-AROMA (*ICA-based Automatic Removal Of Motion Artifacts*) is a data-driven m
 	          f = np.arange(step,Ny,step)
 	to        f = Ny*(np.array(range(1,FT.shape[0]+1)))/(FT.shape[0])
 ```
+
+## Dependencies
+This is tested with python versions 2.7 and 3.5, specifically those distributed in the [anaconda](https://docs.continuum.io/anaconda/) python distribution. It should also work with the system python (generally 2.7) on recent versions of Linux. In addition to a python installation the following is required:
+
+ - The [FSL](http://fsl.fmrib.ox.ac.uk/fsl/fslwiki/) software suite.
+ - The [numpy](http://www.numpy.org/) python package
+ - The [nibabel](http://nipy.org/nibabel/) python package.
+
+ These are available on ubuntu and debian systems via the [neurodebian](http://neuro.debian.net/) repository or may be installed explicitly via
+ downloads and/or `pip install`.
