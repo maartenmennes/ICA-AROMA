@@ -6,11 +6,11 @@ from __future__ import division, print_function
 
 import sys
 import os
-from os.path import join, isfile, isdir, exists, expanduser, dirname
+from os.path import join, isfile, isdir, expanduser, dirname
 import shutil
 from functools import partial
 
-from tempfile import mkdtemp, mkstemp
+from tempfile import mkdtemp
 from subprocess import call
 
 import logging
@@ -23,20 +23,20 @@ import nibabel as nib
 
 __version__ = '0.4.0'
 
-# FSL commands and environment
+# FSL commands and environment (defaults are suitable for ubuntu)
 FSLBINDIR = join(os.environ.get("FSLDIR", '/usr/share/fsl/5.0'), 'bin')
 FSLTEMPLATEDIR = join(os.environ.get("FSLDIR", '/usr/share/fsl/5.0'), 'data', 'standard')
 
 # MNI152 T1 2mm template file
 FSLMNI52TEMPLATE = join(FSLTEMPLATEDIR, 'MNI152_T1_2mm_brain.nii.gz')
 
-MELODIC    = join(FSLBINDIR, 'melodic')
-FSLROI     = join(FSLBINDIR, 'fslroi')
-FSLMERGE   = join(FSLBINDIR, 'fslmerge')
-FSLMATHS   = join(FSLBINDIR, 'fslmaths')
-FLIRT      = join(FSLBINDIR, 'flirt')
-APPLYWARP  = join(FSLBINDIR, 'applywarp')
-BET        = join(FSLBINDIR, 'bet')
+MELODIC   = join(FSLBINDIR, 'melodic')
+FSLROI    = join(FSLBINDIR, 'fslroi')
+FSLMERGE  = join(FSLBINDIR, 'fslmerge')
+FSLMATHS  = join(FSLBINDIR, 'fslmaths')
+FLIRT     = join(FSLBINDIR, 'flirt')
+APPLYWARP = join(FSLBINDIR, 'applywarp')
+BET       = join(FSLBINDIR, 'bet')
 
 AROMADIR = os.environ.get("AROMADIR", '/usr/share/aroma')
 
@@ -131,7 +131,6 @@ def reg_filter(data, design, components, aggressive=False, mask=True):
 
     assert components and all(0 <= i < nc for i in components)
 
-
     # mask out background voxels at less then 1%
     if mask:
         mean_image = data.mean(axis=0)
@@ -141,7 +140,7 @@ def reg_filter(data, design, components, aggressive=False, mask=True):
 
     # flatten image volumes so we can treat as ordinary matrix
     data = data.reshape((nt, -1))
-    
+
     # de-mean data and model
     data_means = data.mean(axis=0)
     data = data - data_means
@@ -462,7 +461,7 @@ def feature_frequency(ftmix, t_r):
     # Now get the fractions associated with those indices index, these are the final feature scores
     hfc = normalised_frequencies[index_cutoff]
 
-    # Return 'High-frequency content' feature score
+    # 'High-frequency content' scores
     return hfc
 
 
@@ -595,8 +594,8 @@ def save_classification(outdir, max_rp_correl, edge_fraction, hfc, csf_fraction,
         for i in range(len(csf_fraction)):
             print(
                 '%d\t%s\t\t%.2f\t\t\t%.2f\t\t\t%.2f\t\t\t%.2f' %
-                    (i+1, is_motion[i], max_rp_correl[i],
-                     edge_fraction[i], hfc[i], csf_fraction[i]),
+                (i+1, is_motion[i], max_rp_correl[i],
+                 edge_fraction[i], hfc[i], csf_fraction[i]),
                 file=file_
             )
 
@@ -641,20 +640,23 @@ def _valid_infile(arg):
         raise argparse.ArgumentTypeError("%s does not exist or is not a file" % path)
     return path
 
+
 def _valid_indir(arg):
     path = os.path.abspath(os.path.normpath(arg))
     if not os.path.isdir(path):
         raise argparse.ArgumentTypeError("%s does not exist or is not a directory" % path)
     return path
 
+
 def _valid_outdir(arg):
     path = os.path.abspath(os.path.normpath(arg))
     try:
         os.makedirs(path)
-    except OSError as exception:
+    except OSError:
         if not os.path.isdir(path):
             raise argparse.ArgumentTypeError("%s is not a valid output directory" % path)
     return path
+
 
 def _valid_feat_dir(arg):
     path = os.path.abspath(os.path.normpath(arg))
@@ -662,18 +664,20 @@ def _valid_feat_dir(arg):
         raise argparse.ArgumentTypeError("%s is not a valid feat directory" % path)
     return path
 
+
 def _valid_melodic_dir(arg):
     path = os.path.abspath(os.path.normpath(arg))
     if not is_valid_melodic_dir(path):
         raise argparse.ArgumentTypeError("%s is not a valid melodic directory" % path)
     return path
 
+
 def _valid_float_in_interval(min_, max_, arg):
     val = float(arg)
     if min_ <= val <= max_:
         return val
     else:
-        raise argparse.ArgumentTypeError("%f is outside interval [%f, %f]" %  (val, min_, max_))
+        raise argparse.ArgumentTypeError("%f is outside interval [%f, %f]" % (val, min_, max_))
 
 _valid_tr = partial(_valid_float_in_interval, 0.5, 10)
 
@@ -683,7 +687,7 @@ def _valid_logging_level(arg):
     if arg.upper() in loglevels:
         return arg.upper()
     else:
-        raise argparse.ArgumentTypeError("%s is not a valid loging level" %  arg)
+        raise argparse.ArgumentTypeError("%s is not a valid loging level" % arg)
 
 
 def parse_cmdline(args):
@@ -912,8 +916,8 @@ def run_aroma(infile, outdir, mask, dim, t_r, melodic_dir, affmat, warp, mc, den
 
 
 if __name__ == '__main__':
-
     import signal
+
     def handler(signum, frame):
         print('Interrupted. Exiting ...', file=sys.stderr)
         sys.exit(1)
@@ -934,16 +938,19 @@ if __name__ == '__main__':
         sys.exit(1)
 
     # Get TR of the fMRI data, if not specified and check
-    TR = args.TR if args.TR is not None else nifti_pixdims(infile)[3]
-    if args.TR is None and not (0.5 <= TR <= 10):
-        logging.critical(
-            ('Unexpected TR value (%f not in [0.5, 10]) found in nifti header. ' % TR) +
-            'Check the header, or define the TR explicitly as an additional argument.' +
-            'Exiting ...'
-        )
-        sys.exit(1)
+    if args.TR is not None:
+        TR = args.TR
+    else:
+        TR = nifti_pixdims(infile)[3]
+        if not (0.5 <= TR <= 10):
+            logging.critical(
+                ('Unexpected TR value (%f not in [0.5, 10]) found in nifti header. ' % TR) +
+                'Check the header, or define the TR explicitly as an additional argument.' +
+                'Exiting ...'
+            )
+            sys.exit(1)
 
-    mask = join(outdir, 'mask.nii.gz')
+    mask = join(args.outdir, 'mask.nii.gz')
     if args.existing_mask is not None:
         shutil.copyfile(src=args.existing_mask, outfile=mask)
     elif using_feat:
@@ -952,7 +959,7 @@ if __name__ == '__main__':
         create_mask(infile, outfile=mask)
 
     global AROMADIR
-    AROMADIR =_find_aroma_dir(AROMADIR)
+    AROMADIR = _find_aroma_dir(AROMADIR)
     if AROMADIR is None:
         logging.critical(
             'Unable to find aroma data directory with mask files. ' +
