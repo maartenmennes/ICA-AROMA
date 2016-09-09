@@ -13,7 +13,7 @@ import argparse
 
 from nose.tools import assert_raises
 
-sys.path.insert(0, normpath('..'))
+sys.path.insert(0, normpath(join('..', 'icaaroma')))
 
 import numpy as np
 import nibabel as nib
@@ -21,7 +21,7 @@ import nibabel as nib
 import aroma
 
 # Monkey patch aroma for testing
-aroma.AROMADIR = normpath('..')
+aroma.AROMADIR = normpath(join('..', 'icaaroma'))
 
 def _call(*args, **kwargs):
     #print(' '.join(args[0]), file=sys.stderr)
