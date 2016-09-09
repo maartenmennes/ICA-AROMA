@@ -2,11 +2,12 @@
 
 ## 1 Introduction
 
-ICA-AROMA (i.e. 'ICA-based Automatic Removal Of Motion Artifacts') attempts to identify and remove motion artifacts from fMRI data.
+ICA-AROMA (for "ICA-based Automatic Removal Of Motion Artifacts") attempts to identify and remove motion artefacts from fMRI data.
 To that end it exploits Independent Component Analysis (ICA) to decompose the data into a set of independent components.
 Subsequently, ICA-AROMA automatically identifies which of these components are related to head motion, by using four robust and standardized features.
-The identified components are then removed from the data through linear regression as implemented in `fsl_regfilt`.
-ICA-AROMA has to be applied after spatial smoothing, but prior to temporal filtering within the typical fMRI preprocessing pipeline.
+The identified components are then removed from the data through linear regression in similar way to `fsl_regfilt`.
+Within the typical fMRI preprocessing pipeline ICA-AROMA has to be applied *after* spatial smoothing, but *prior to* temporal filtering.
+
 Two manuscripts provide a detailed description and evaluation of ICA-AROMA:
 
 1. Pruim, R.H.R., Mennes, M., van Rooij, D., Llera, A., Buitelaar, J.K., Beckmann, C.F.,
@@ -19,15 +20,15 @@ Two manuscripts provide a detailed description and evaluation of ICA-AROMA:
 
 ## 2 General info
 
-The ICA-AROMA package contains two python scripts: `ICA_AROMA.py` and `ICA_AROMA_functions.py`. The first is the main script to be called by the user. The second contains the functions used by the main script. The package furthermore contains three spatial maps (CSF, edge & out-of-brain masks) which are required to derive the spatial features used by ICA-AROMA. Check the *help* function of ICA_AROMA.py for information on the argument options for running ICA-AROMA.
+The ICA-AROMA package consists of a single python script: `aroma.py`. The is called directly by the user. The package furthermore contains three spatial maps (CSF, edge & out-of-brain masks) which are required to derive the spatial features used by ICA-AROMA. These need to be installed in a location accessible to the script. Check the *help* function of ICA_AROMA.py for information on the argument options for running ICA-AROMA.
 
-The scripting-examples provided in this manual are based on the bash shell.
 
 ## 3 Requirements
 
 - FSL
-- Python 2.7
+- Python 2.7 or 3.5
 - Numpy
+- Nibabel
 
 
 ## 4 Run ICA-AROMA - generic
@@ -52,14 +53,13 @@ For standard use, ICA_AROMA.py requires the following five inputs:
 Example:
 
 ```no-highlight
-$ python <path>ICA_AROMA.py \
+$ python aroma.py \
        -in func_smoothed.nii.gz -out ICA_AROMA \
        -affmat reg/func2highres.mat
        -warp reg/highres2standard_warp.nii.gz -mc mc/rest_mcf.par
 ```
 
-Of note, the registration files are required to transform the obtained ICA components to the
-MNI152 2mm template in order to derive standardized spatial feature scores. The fMRI data
+The program needs to be able to find the registration files required to transform the obtained ICA components to the MNI152 2mm template in order to derive standardized spatial feature scores. The fMRI data
 itself will not be subjected to any registration, transformation or reslicing!
 
 ### 4.1 Masking
@@ -69,7 +69,7 @@ specified (-m, -mask) when running ICA-AROMA.
 
 Example:
 ```bash
-$ python <path>/ICA_AROMA.py \
+$ python aroma.py \
        -in func_smoothed.nii.gz -out ICA_AROMA \
        -mc mc/rest_mcf.par \
        -affmat reg/example_func2highres.mat \
@@ -77,18 +77,17 @@ $ python <path>/ICA_AROMA.py \
        -m mask_aroma.nii.gz
 ```
 
-We recommend not to use the mask determined by FEAT. This mask is optimized to be used for
-first-level analysis, as has been dilated to ensure that all ‘active’ voxels are included. We advise
-to create a mask using the Brain Extraction Tool of FSL (fractional intensity of 0.3), on a
-non-brain-extracted example or mean functional image (e.g. example_func within the FEAT
+We recommend not using the mask determined by FEAT. This mask is optimized to be used for
+first-level analysis, as has been dilated to ensure that all *active* voxels are included.
+Instead, we recommend creating a mask using the Brain Extraction Tool of FSL (using a fractional intensity of 0.3), on a non-brain-extracted example or a mean functional image (e.g. example_func within the FEAT
 directory).
 
-Example to create an appropriate mask:
+Example of creating an appropriate mask:
 ```no-highlight
 $ bet <input> <output> -f 0.3 -n -m -R
 ```
 
-Of note, the specified mask will only be used at the first stage (ICA) of ICA-AROMA. The
+Note that the specified mask will only be used at the first stage (ICA) of ICA-AROMA. The
 output fMRI data-file is not masked.
 
 
@@ -99,15 +98,15 @@ the directory meets the standardized folder/file-structure, no temporal filterin
 and it was run including registration to the MNI152 template.
 In this case, only the FEAT directory has to be specified (-f, -feat) next to an output
 directory. ICA-AROMA will automatically define the appropriate files, create an appropriate
-mask (see section 4.1) and use the ‘melodic.ica’ directory if available (in case ‘MELODIC ICA
-data exploration’ was checked in FEAT). We recommend not to run MELODIC within FEAT
+mask (see section 4.1) and use the `melodic.ica` directory if available (in case `MELODIC ICA
+data exploration` was checked in FEAT). We don't recommend running MELODIC within FEAT
 such that MELODIC will be run within ICA-AROMA using the appropriate mask. Moreover,
-this option in FEAT is meant for data exploration after full data preprocessing, as such it can be
+this option in FEAT is meant for data exploration after full data pre-processing. As such it can be
 applied after ICA-AROMA, temporal high-pass filtering etc.
 
 Example:
 ```no-highlight
-$ python <path>/ICA_AROMA.py -feat rest.feat -out rest.feat/ICA_AROMA/
+$ python aroma.py -feat rest.feat -out rest.feat/ICA_AROMA/
 ```
 
 ## 6 Output
@@ -156,7 +155,7 @@ runs with optimal settings.
 
 Example:
 ```no-highlight
-$ python <path>/ICA_AROMA.py \
+$ python aroma.py \
       -in filtered_func_data.nii.gz \
       -out ICA_AROMA -mc mc/rest_mcf.par -m mask_aroma.nii.gz \
       -affmat reg/func2highres.mat \
@@ -167,19 +166,19 @@ $ python <path>/ICA_AROMA.py \
 ### 7.3 Registration
 
 ICA-AROMA is designed (and validated) to run on data in native space, hence the requested
-'affmat' and 'warp' files. However, ICA-AROMA can also be applied on data within structural
-or standard space. In these cases, just do not specify the 'affmat' and/or 'warp' file. Moreover, if
+`affmat` and `warp` files. However, ICA-AROMA can also be applied on data within structural
+or standard space. In these cases, just do not specify the `affmat` and/or `warp` files. Moreover, if
 you applied linear instead of non-linear registration of the functional data to standard space, you
-only have to specify the affmat file (e.g. example_func2standard.mat). In other words,
+only have to specify the `affmat` file (e.g. example_func2standard.mat). In other words,
 depending on the which registration files you specify, ICA-AROMA assumes the data to be in
 native, structural or standard space and will run the specified registration. When you do not
-have a 'affmat' and/or 'warp' file available (e.g. fMRI performed with another software package
+have a `affmat` and/or `warp` file available (e.g. fMRI performed with another software package
 then FSL), please create these files using [FSL-FLIRT](http://fsl.fmrib.ox.ac.uk/fsl/fslwiki/FLIRT/UserGuide) and
 [FSL-FNIRT](http://fsl.fmrib.ox.ac.uk/fsl/fslwiki/FNIRT/UserGuide) respectively.
 
 Example (for data in MNI152 space):
 ```no-highlight
-$ python <path>/ICA_AROMA.py \
+$ python aroma.py \
        -in filtered_func_data2standard.nii.gz \
        -out ICA_AROMA -mc mc/rest_mcf.par \
        -m mask_aroma.nii.gz
@@ -187,7 +186,7 @@ $ python <path>/ICA_AROMA.py \
 
 Example (in case linear registration to MNI152 space should be applied):
 ```no-highlight
-$ python <path>/ICA_AROMA.py \
+$ python aroma.py \
        -in func_smoothed.nii.gz -out ICA_AROMA  \
        -mc mc/rest_mcf.par \
        -affmat reg/func2standard.mat -m mask_aroma.nii.gz
