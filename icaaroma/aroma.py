@@ -38,8 +38,6 @@ FLIRT     = join(FSLBINDIR, 'flirt')
 APPLYWARP = join(FSLBINDIR, 'applywarp')
 BET       = join(FSLBINDIR, 'bet')
 
-AROMADIR = os.environ.get("AROMADIR", '/usr/share/aroma')
-
 
 def is_writable_file(path):
     exists_and_writable = path and isfile(path) and os.access(path, os.W_OK)
@@ -915,15 +913,10 @@ def run_aroma(infile, outdir, mask, dim, t_r, melodic_dir, affmat, warp, mc, den
         save_classification(outdir, max_rp_correl, edge_fraction, hfc, csf_fraction, motion_ic_indices)
 
 
-if __name__ == '__main__':
-    import signal
+def main(argv=sys.argv):
+    """Command line entry point."""
 
-    def handler(signum, frame):
-        print('Interrupted. Exiting ...', file=sys.stderr)
-        sys.exit(1)
-    signal.signal(signal.SIGINT, handler)
-
-    args = parse_cmdline(sys.argv[1:])
+    args = parse_cmdline(argv[1:])
 
     level = getattr(logging, args.loglevel, None)
     if level is not None:
@@ -958,15 +951,6 @@ if __name__ == '__main__':
     else:
         create_mask(infile, outfile=mask)
 
-    global AROMADIR
-    AROMADIR = _find_aroma_dir(AROMADIR)
-    if AROMADIR is None:
-        logging.critical(
-            'Unable to find aroma data directory with mask files. ' +
-            'Exiting ...'
-        )
-        sys.exit(1)
-
     run_aroma(
         infile=infile,
         outdir=args.outdir,
@@ -980,4 +964,31 @@ if __name__ == '__main__':
         denoise_type=args.denoise_type,
         seed=args.seed
     )
+
+
+if __name__ == '__main__':
+    # installed as standalone script
+    import signal
+
+    def handler(signum, frame):
+        print('Interrupted. Exiting ...', file=sys.stderr)
+        sys.exit(1)
+    signal.signal(signal.SIGINT, handler)
+
+    AROMADIR = _find_aroma_dir(os.environ.get("AROMADIR", None))
+    if AROMADIR is None:
+        logging.critical(
+            'Unable to find aroma data directory with mask files. ' +
+            'Exiting ...')
+        sys.exit(1)
+
+    main()
     sys.exit(0)
+else:
+    # installed as python package
+    try:
+        import pkg_resources
+        PKGDATA = pkg_resources.resource_filename(__name__, 'data')
+    except ImportError:
+        PKGDATA = join(dirname(__file__), 'data')
+    AROMADIR = os.environ.get("AROMADIR", PKGDATA)
