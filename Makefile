@@ -13,3 +13,6 @@ install:
 	install -m 0644 icaaroma/data/mask_csf.nii.gz $(DATADIR)
 	install -m 0644 icaaroma/data/mask_edge.nii.gz $(DATADIR)
 	install -m 0644 icaaroma/data/mask_out.nii.gz $(DATADIR)
+
+clean:
+	rm -rf build/ dist/ *.pyc */*.pyc */__pycache__ test/out/
