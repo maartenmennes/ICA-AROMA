@@ -699,7 +699,7 @@ def parse_cmdline(args):
 
     # Required arguments
     requiredargs = parser.add_argument_group('Required arguments')
-    requiredargs.add_argument('-o', '-out', dest="outdir", required=True, type=_valid_outdir, help='Output directory name')
+    requiredargs.add_argument('-o', '--out', dest="outdir", required=True, type=_valid_outdir, help='Output directory name')
 
     # Required arguments in non-Feat mode
     nonfeatargs = parser.add_argument_group('Required arguments - generic mode')
@@ -723,7 +723,7 @@ def parse_cmdline(args):
 
 
     nonfeatargs.add_argument(
-        '-m', '--mask', dest="mask", type=_valid_infile,
+        '-m', '--mask', dest="existing_mask", type=_valid_infile,
         help='Mask file for MELODIC (denoising will be performed on the original/non-masked input data)')
 
     # Required options in Feat mode
