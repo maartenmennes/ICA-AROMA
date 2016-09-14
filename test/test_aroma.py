@@ -21,7 +21,7 @@ import nibabel as nib
 import aroma
 
 # Monkey patch aroma for testing
-aroma.AROMADIR = normpath(join('..', 'icaaroma'))
+aroma.AROMADIR = normpath(join('..', 'icaaroma', 'data'))
 
 def _call(*args, **kwargs):
     #print(' '.join(args[0]), file=sys.stderr)
@@ -57,6 +57,9 @@ def test__find_aroma_dir():
     aromadir = aroma._find_aroma_dir(aroma.AROMADIR)
     assert aromadir
     assert isdir(aromadir)
+    assert isfile(join(aromadir, 'mask_edge.nii.gz'))
+    assert isfile(join(aromadir, 'mask_csf.nii.gz'))
+    assert isfile(join(aromadir, 'mask_out.nii.gz'))
 
 
 # These now use nibabel by default
@@ -73,9 +76,9 @@ def test_nifti_pixdims():
 def test_zsums_1():
     # one at a time
     total_sum, = aroma.zsums('refout/melodic_IC_thr_MNI2mm.nii.gz')
-    edge_sum,  = aroma.zsums('refout/melodic_IC_thr_MNI2mm.nii.gz', ['../mask_edge.nii.gz'])
-    csf_sum,   = aroma.zsums('refout/melodic_IC_thr_MNI2mm.nii.gz', ['../mask_csf.nii.gz'])
-    outside_sum,   = aroma.zsums('refout/melodic_IC_thr_MNI2mm.nii.gz', ['../mask_out.nii.gz'])
+    edge_sum,  = aroma.zsums('refout/melodic_IC_thr_MNI2mm.nii.gz', [join(aroma.AROMADIR, 'mask_edge.nii.gz')])
+    csf_sum,   = aroma.zsums('refout/melodic_IC_thr_MNI2mm.nii.gz', [join(aroma.AROMADIR, 'mask_csf.nii.gz')])
+    outside_sum,   = aroma.zsums('refout/melodic_IC_thr_MNI2mm.nii.gz', [join(aroma.AROMADIR, 'mask_out.nii.gz')])
     edge_fractions = np.where(total_sum > csf_sum, (outside_sum + edge_sum) / (total_sum - csf_sum), 0)
     csf_fractions = np.where(total_sum > csf_sum, csf_sum / total_sum, 0)
     assert np.all((0 <= edge_fractions) & (edge_fractions <= 1))
@@ -89,7 +92,7 @@ def test_zsums_2():
     # all together
     total_sum, edge_sum, csf_sum, outside_sum = aroma.zsums(
         'refout/melodic_IC_thr_MNI2mm.nii.gz',
-        [None, '../mask_edge.nii.gz', '../mask_csf.nii.gz', '../mask_out.nii.gz']
+        [None, join(aroma.AROMADIR, 'mask_edge.nii.gz'), join(aroma.AROMADIR, 'mask_csf.nii.gz'), join(aroma.AROMADIR, 'mask_out.nii.gz')]
     )
     edge_fractions = np.where(total_sum > csf_sum, (outside_sum + edge_sum) / (total_sum - csf_sum), 0)
     csf_fractions = np.where(total_sum > csf_sum, csf_sum / total_sum, 0)
@@ -211,7 +214,7 @@ def test_feature_frequency():
 def test_feature_spatial():
     edge_fractions, csf_fractions = aroma.feature_spatial(
         'refout/melodic_IC_thr_MNI2mm.nii.gz',
-        aroma_dir='..'
+        aroma_dir=aroma.AROMADIR
     )
     assert len(edge_fractions) == len(csf_fractions) == 45
     scores = np.loadtxt('refout/feature_scores.txt').T
