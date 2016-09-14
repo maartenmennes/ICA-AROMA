@@ -738,7 +738,7 @@ def parse_cmdline(args):
     optionalargs.add_argument('--tr', dest="TR", help='TR in seconds', type=_valid_tr)
     optionalargs.add_argument(
         '-t', '--denoisetype', dest="denoise_type", default="nonaggr",
-        choices=['no', 'nonaggr', 'aggr', 'both'],
+        choices=['none', 'nonaggr', 'aggr', 'both'],
         help=("Denoising strategy: 'no': classification only; 'nonaggr':" +
               " non-aggresssive; 'aggr': aggressive; 'both': both (seperately)"))
     optionalargs.add_argument(
