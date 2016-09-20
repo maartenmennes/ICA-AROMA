@@ -329,7 +329,7 @@ def test_parse_cmdline_1():
     assert parsed_args.dim == 0
     assert parsed_args.featdir == None
     assert parsed_args.loglevel == 'INFO'
-    assert parsed_args.mask == None
+    assert parsed_args.existing_mask == None
     assert parsed_args.melodic_dir == None
 
 
@@ -500,8 +500,9 @@ def test_run_aroma():
     f = 'feature_scores.txt'
     assert np.allclose(
         np.loadtxt(join(outdir, f)),
-        np.loadtxt(join('refout', f))
-    ), 'File %s numerical mismatch' % f
+        np.loadtxt(join('refout', f)),
+        rtol=1e-06, atol=1e-03
+    ), 'File %s numerical mismatch (%f)' % (f, np.max(abs(np.loadtxt(join(outdir, f))-np.loadtxt(join('refout', f)))))
 
     f = 'denoised_func_data_nonaggr.nii.gz'
     assert np.allclose(

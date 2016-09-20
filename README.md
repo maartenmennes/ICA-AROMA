@@ -15,6 +15,7 @@ Note that some earlier versions of the original ICA-AROMA scripts (v0.1-beta and
 - move documentation to markdown
 - replace `fsl_regfilt` with an internal routine
 - allow installation as package via pip or directly as standalone script
+- gnu standard short/long forms for command line arguments
 
 ### 0.2-beta to v0.3-beta
 - Correct the definition of the string of indices of the components to be removed by *fsl_regfilt*:

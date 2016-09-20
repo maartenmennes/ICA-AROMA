@@ -739,7 +739,7 @@ def parse_cmdline(args):
     optionalargs.add_argument(
         '-t', '--denoisetype', dest="denoise_type", default="nonaggr",
         choices=['none', 'nonaggr', 'aggr', 'both'],
-        help=("Denoising strategy: 'no': classification only; 'nonaggr':" +
+        help=("Denoising strategy: 'none': classification only; 'nonaggr':" +
               " non-aggresssive; 'aggr': aggressive; 'both': both (seperately)"))
     optionalargs.add_argument(
         '-M', '--melodicdir', dest="melodic_dir", default=None, type=_valid_melodic_dir,
@@ -992,3 +992,4 @@ else:
     except ImportError:
         PKGDATA = join(dirname(__file__), 'data')
     AROMADIR = os.environ.get("AROMADIR", PKGDATA)
+

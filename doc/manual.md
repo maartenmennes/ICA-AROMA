@@ -150,7 +150,7 @@ $ aroma --feat rest.feat --out rest.feat/ICA_AROMA/
 |-D, --dimreduction | Dimensionality reduction when running MELODIC |
 |                   |  (default is automatic estimation)   |
 |-t, --denoisetype  | Type of denoising strategy:            |
-|                   |    - no: only classification, no denoising                    |
+|                   |    - none: only classification, no denoising                    |
 |                   |    - nonaggr (default): non-aggresssive denoising, i.e. partial component regression |
 |                   |    - aggr: aggressive denoising, i.e. full component regression |
 |                   |    - both: both aggressive and non-aggressive denoising (two outputs) |

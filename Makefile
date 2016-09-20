@@ -14,5 +14,9 @@ install:
 	install -m 0644 icaaroma/data/mask_edge.nii.gz $(DATADIR)
 	install -m 0644 icaaroma/data/mask_out.nii.gz $(DATADIR)
 
+.PHONY: test
+test:
+	(cd test; ./nosetests test_aroma.py)
+
 clean:
-	rm -rf build/ dist/ *.pyc */*.pyc */__pycache__ test/out/
+	rm -rf build/ dist/ *.pyc */*.pyc */__pycache__ test/out/ *.egg-info
