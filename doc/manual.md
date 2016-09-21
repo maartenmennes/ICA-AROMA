@@ -4,9 +4,10 @@
 
 ICA-AROMA (for "ICA-based Automatic Removal Of Motion Artifacts") attempts to identify and remove motion artefacts from fMRI data.
 To that end it exploits Independent Component Analysis (ICA) to decompose the data into a set of independent components.
-Based on the results of a [FSL-MELODIC](http://fsl.fmrib.ox.ac.uk/fsl/fslwiki/MELODIC) ICA decomposition, ICA-AROMA automatically identifies which of these components are related to head motion, by using four robust and standardized features.
+Based on the results of a [FSL-MELODIC](http://fsl.fmrib.ox.ac.uk/fsl/fslwiki/MELODIC) ICA decomposition, ICA-AROMA automatically
+identifies which of these components are related to head motion, by using four robust and standardized features.
 
-The identified components are then removed from the data through linear regression in similar way to [fsl_regfilt](http://fsl.fmrib.ox.ac.uk/fsl/fslwiki/MELODIC#fsl_regfilt_command-line_program).
+The identified motion components are then removed from the data through linear regression in similar way to [fsl_regfilt](http://fsl.fmrib.ox.ac.uk/fsl/fslwiki/MELODIC#fsl_regfilt_command-line_program).
 
 Within the typical fMRI preprocessing pipeline ICA-AROMA has to be applied *after* spatial smoothing, but *prior to* temporal filtering.
 
@@ -22,16 +23,24 @@ Two manuscripts provide a detailed description and evaluation of ICA-AROMA:
 
 ## 2 General info
 
-The `icaaroma` package consists of essentially a single python script: `aroma.py` that can be installed within the package `icaaroma` or run standalone by making it executable and running directly. The `icaaroma` package furthermore contains three spatial maps (CSF, edge & out-of-brain masks) which are required to derive the spatial features used by ICA-AROMA. These need to be installed in a location accessible to the script, either within the package or in a system location such as `/usr/local/share/aroma`. There is an included `Makefile` for a standalone installation.
+The `icaaroma` package consists of essentially a single python script: `aroma.py`. This can be installed within the package `icaaroma`
+or used as standalone script by making it executable and running directly. The `icaaroma` package furthermore contains three mask files
+(CSF, edge & out-of-brain) which are required to derive the spatial features used by ICA-AROMA. These need to be installed in a
+location accessible to the script: either within the package or in a system location such as `/usr/local/share/aroma`. There is
+a `Makefile` included for the standalone installation.
 
 ## 3 Requirements
 
 - [FSL](http://fsl.fmrib.ox.ac.uk/fsl/fslwiki/)
-- [Python](https://www.python.org/) (either version 2.7 or 3.X)
+- [Python](https://www.python.org/) (either >=3.5 or 2.7)
 - [Numpy](http://www.numpy.org/)
 - [Nibabel](http://nipy.org/nibabel/)
 
-The system python/numpy may normally be used. Otherwise, the [Anaconda](https://docs.continuum.io/anaconda) distribution is both easy to install and well suited to scientific programming. Nibabel may be installed within anaconda using [pip](https://pypi.python.org/pypi).
+The system python/numpy is normally suitable. Otherwise, the [Anaconda](https://docs.continuum.io/anaconda) distribution may be used.
+This both easy to install and well suited to scientific programming. Nibabel may be installed within anaconda
+using [pip](https://pypi.python.org/pypi) or (on a neuordebian system) using `apt-get python-nibabel`. FSL commands are expected
+to be available in a directory specified by the environment variable `$FSLDIR` (ie `$FSLDIR/bin`) or in the standard location
+on neurodebian systems (`/usr/share/fsl/5.0/bin`).
 
 ## 4 Installation
 From a local clone of the repository on [github](https://github.com/rtrhd/ICA-AROMA/tree/rhdclean):
@@ -50,9 +59,14 @@ $ sudo make install
 ```
 Either way an executable python script called `aroma` will be installed to `/usr/local/bin`.
 
+To run the package `nose` tests the following may be used:
+```
+$ make test
+```
+
 ## 5 Run ICA-AROMA - generic
 
-In normal use, the `aroma` requires the following five command line arguments:
+In normal use, the `aroma` command requires the following five arguments:
 
 |                   |                                                                |
 |-------------------|----------------------------------------------------------------|
@@ -78,7 +92,9 @@ $ aroma \
     --warp reg/highres2standard_warp.nii.gz --motionparams mc/rest_mcf.par
 ```
 
-The program needs to be able to find the registration files required to transform the obtained ICA components to the MNI152 2mm template in order to derive standardized spatial feature scores. All ouput is the the specified directory. The input fMRI nifti image will not be modified.
+The program needs to be able to find the registration files required to transform the obtained ICA components
+to the MNI152 2mm template in order to derive standardized spatial feature scores. All output is to the specified
+directory. The input fMRI nifti image will not be modified.
 
 
 ### 5.1 Masking
@@ -95,8 +111,10 @@ $ aroma \
     --mask mask_aroma.nii.gz
 ```
 
-We recommend not using the mask determined by [FSL-FEAT](http://fsl.fmrib.ox.ac.uk/fsl/fslwiki/FEAT). This mask is optimized to be used for first-level analysis, as has been dilated to ensure that all *active* voxels are included.
-Instead, we recommend creating a mask using the [FSL-BET](http://fsl.fmrib.ox.ac.uk/fsl/fslwiki/BET) Brain Extraction Tool (using a fractional intensity of 0.3), on a non-brain-extracted example or a mean functional image (e.g. example_func within the FEAT directory).
+We don't recommend using the mask determined by [FSL-FEAT](http://fsl.fmrib.ox.ac.uk/fsl/fslwiki/FEAT). This mask is
+optimized for use in a first-level analysis, and has been dilated so as to ensure that *all* active voxels are included.
+Instead, we suggest creating a mask using the [FSL-BET](http://fsl.fmrib.ox.ac.uk/fsl/fslwiki/BET) Brain Extraction Tool
+(using a fractional intensity of 0.3), on a non-brain-extracted example or a mean functional image (e.g. example_func within the FEAT directory).
 
 Example of creating an appropriate mask:
 ```no-highlight
@@ -109,16 +127,17 @@ output fMRI data-file is not masked.
 
 ## 6 Run ICA-AROMA - after FEAT
 
-ICA-AROMA is optimized for usage after preprocessing fMRI data with FSL FEAT, assuming
-the directory meets the standardized folder/file-structure, no temporal filtering has been applied
-and it was run including registration to the MNI152 template.
-In this case, only the FEAT directory has to be specified (-f, -feat) next to an output
-directory. ICA-AROMA will automatically define the appropriate files, create an appropriate
-mask (see section 4.1) and use the `melodic.ica` directory if available (in case `MELODIC ICA
-data exploration` was checked in FEAT). We don't recommend running MELODIC within FEAT
-such that MELODIC will be run within ICA-AROMA using the appropriate mask. Moreover,
-this option in FEAT is meant for data exploration after full data pre-processing. As such it can be
-applied after ICA-AROMA, temporal high-pass filtering etc.
+ICA-AROMA is intended for use after the preprocessing of the fMRI data with FSL FEAT and where this has
+already been done only the FEAT output directory need be specified using (-f, --feat). In this case the
+standard layout of a FEAT output directory is assumed. It is also taken that no temporal filtering has
+been applied but that registration to the MNI152 template was performed. ICA-AROMA will select the
+appropriate files, create a mask (see section 5.1) and use the `melodic.ica` subdirectory if it is
+available (as will be the case if `MELODIC ICA data exploration` option was checked in the FEAT GUI).
+
+Note, however, that in normal use, we don't recommend running MELODIC from within FEAT as it is better
+to run it later within ICA-AROMA when a more appropriate mask can be used. The `MELODIC` option in FEAT
+is really intended for exploration *after* the full data pre-processing pipeline is complete. It can be
+applied after processing with ICA-AROMA, temporal high-pass filtering etc.
 
 Example:
 ```no-highlight
@@ -145,7 +164,7 @@ $ aroma --feat rest.feat --out rest.feat/ICA_AROMA/
 
 |                   |                                                             |
 |-------------------|-------------------------------------------------------------|
-|--tr               | TR in seconds. If this is not specified the TR will be      |
+|-T, --tr           | TR in seconds. If this is not specified the TR will be      |
 |                   | extracted from the header of the fMRI nifti file. |
 |-D, --dimreduction | Dimensionality reduction when running MELODIC |
 |                   |  (default is automatic estimation)   |
@@ -159,12 +178,12 @@ $ aroma --feat rest.feat --out rest.feat/ICA_AROMA/
 
 ### 8.2 MELODIC
 
-When you have already run MELODIC you can specify the melodic directory as additional input
-(`-M`, `--melodicdir`; see example below) to avoid running MELODIC again. Note that MELODIC
-should have been run on fMRI data prior to temporal filtering and after spatial smoothing.
-Preferably, it has been run with the recommended mask (see section 4.1). Unless you have a
-good reason for doing otherwise, we advise to run MELODIC as part of ICA-AROMA so that it
-runs with optimal settings.
+When you have already run MELODIC you can specify the melodic directory as an additional input
+(`-M`, `--melodicdir`; see example below) to avoid running it again. Note that MELODIC
+should have been run on fMRI data prior to temporal filtering but after spatial smoothing.
+Preferably, it has been run with the recommended mask (see section 5.1). Unless you have a
+good reason for doing otherwise, we advise running MELODIC as part of ICA-AROMA so that it
+runs with the optimal settings.
 
 Example:
 ```no-highlight
@@ -183,13 +202,14 @@ ICA-AROMA is designed (and validated) to run on data in native space, hence the 
 or standard space. In these cases, just do not specify the `affmat` and/or `warp` files. Moreover, if
 you applied linear instead of non-linear registration of the functional data to standard space, you
 only have to specify the `affmat` file (e.g. `example_func2standard.mat`). In other words,
-depending on the which registration files you specify, ICA-AROMA assumes the data to be in
-native, structural or standard space and will run the specified registration. When you do not
-have a `affmat` and/or `warp` file available (e.g. fMRI performed with another software package
-then FSL), please create these files using [FSL-FLIRT](http://fsl.fmrib.ox.ac.uk/fsl/fslwiki/FLIRT/UserGuide) and
+depending on which registration files you specify, ICA-AROMA assumes the data to be in
+native, structural or standard space and will run the corresponding registration step. If you do not
+have a `affmat` and/or `warp` file available (if, for instance, the fMRI analysis was performed with
+another software package rather then FSL), then theese files should be created using
+[FSL-FLIRT](http://fsl.fmrib.ox.ac.uk/fsl/fslwiki/FLIRT/UserGuide) and
 [FSL-FNIRT](http://fsl.fmrib.ox.ac.uk/fsl/fslwiki/FNIRT/UserGuide) respectively.
 
-Example (for data in MNI152 space):
+Example (for data already in MNI152 space):
 ```no-highlight
 $ aroma \
     --in filtered_func_data2standard.nii.gz \
@@ -197,10 +217,42 @@ $ aroma \
     --mask mask_aroma.nii.gz
 ```
 
-Example (in case linear registration to MNI152 space should be applied):
+Example (in the case where linear registration to MNI152 space should be applied):
 ```no-highlight
 $ aroma \
     --in func_smoothed.nii.gz --out ICA_AROMA  \
     --motionparams mc/rest_mcf.par \
     --affmat reg/func2standard.mat --mask mask_aroma.nii.gz
 ```
+
+
+## 9 Changes from Previous Versions
+## 9.1 Command Line
+The program is now run directly as the command `aroma` rather as `python ICA_AROMA.py`.
+This script may be the single file `icaaroma/aroma.py` if installed standalone with `make` or a stub
+referencing the `icaaroma` package if installed with `setup.py` or `pip`.
+
+The following changes have also been made to the command line arguments to conform a little
+more closely with the usual gnu conventions.
+
+|   |Former |    Meaning              |   |  V0.4        |
+|---|-------|-------------------------|---|--------------|
+|-o |-out   |output directory name    |-o |--out         |
+|-i |-in    |input fMRI data          |-i |--in          |
+|   |-mc    |motion parameters file   |-p |--motionparams|
+|-a |-affmat|affine registration      |-a |--affmat      |
+|-w |-warp  |warp-file to MNI152 space|-w |--warp        |
+|-m |-mask  |mask file for MELODIC    |-m |--mask        |
+|-f |-feat  |feat directory name      |-f |--feat        |
+|   |-tr    |TR in seconds            |-T |--tr          |
+|   |-den   |denoising strategy       |-t |--denoisetype |
+|-md|-meldir|MELODIC directory        |-M |--melodicdir  |
+|   |-dim   |num dims in MELODIC      |-D |--dimreduction|
+
+In addition, argument filenames no longer have to be absolute paths.
+
+## 9.2 Dependencies
+The additional python package `nibabel` is required for reading nifti format files.
+
+## 9.3 Testing
+Some `nose` tests of the module are included in `test/test_aroma.py` together with a customized version of `nosetests`.
