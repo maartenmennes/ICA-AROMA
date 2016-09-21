@@ -735,7 +735,7 @@ def parse_cmdline(args):
 
     # Optional options
     optionalargs = parser.add_argument_group('Optional arguments')
-    optionalargs.add_argument('--tr', dest="TR", help='TR in seconds', type=_valid_tr)
+    optionalargs.add_argument('-T', '--tr', dest="TR", help='TR in seconds', type=_valid_tr)
     optionalargs.add_argument(
         '-t', '--denoisetype', dest="denoise_type", default="nonaggr",
         choices=['none', 'nonaggr', 'aggr', 'both'],
