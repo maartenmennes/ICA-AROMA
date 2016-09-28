@@ -105,19 +105,22 @@ def reg_filter(data, design, components, aggressive=False, mask=True):
     Parameters
     ----------
     data: rank 4 numpy array
-        Input data file to be denoised organised (nt, nz, ny, nz) and c-contiguous
+        Input/output data file to be denoised organised (nt, nz, ny, nz) and c-contiguous
     design: rank 2 numpy array
         design (or melodic mixing) matrix organised (nt, nc) and c-contiguous
     denoise_indices: sequence of integers
         Indices of the components that should be regressed out
-    aggressive: bool
-        Whether to do aggressive denoising
-    mask: bool
-        Whether to mask out low intensity voxels
+    aggressive: bool, optional
+        Whether to do aggressive denoising (default: False)
+    mask: bool, optional
+        Whether to mask out low intensity voxels (default: True)
     Returns
     -------
-    rank 4 numpy array of filtered functional data
+    None - in-place update
 
+    Notes
+    -------
+    For reasons of memory efficiency the input data array is modified in-place
     """
 
     nt, nz, ny, nx = data.shape
@@ -136,26 +139,28 @@ def reg_filter(data, design, components, aggressive=False, mask=True):
         mask = mean_image > (min_ + (max_ - min_) / 100)
         data *= mask[None, :]
 
-    # flatten image volumes so we can treat as ordinary matrix
+    # flattened view of image volumes so we can treat as an ordinary matrix
     data = data.reshape((nt, -1))
 
-    # de-mean data and model
+    # de-mean data
     data_means = data.mean(axis=0)
-    data = data - data_means
+    data -= data_means
+
+    # de-mean model
     design = design - design.mean(axis=0)
 
-    # noise components of design
-    noise_design = design[:, components]
+    # just the noise components of the design
+    design_n = design[:, components]
 
+    # filter noise components from data
+    # D_n @ (pinv(D_n) @ data) or D_n @ ((pinv(D) @ data)_n)
     if aggressive:
-        maps = pinv(noise_design).dot(data)
+        data -= design_n.dot(pinv(design_n).dot(data))
     else:
-        maps = pinv(design).dot(data)[components]
+        data -= design_n.dot(pinv(design).dot(data)[components])
 
-    filtered_data = data - noise_design.dot(maps) + data_means
-
-    # restore shape of image
-    return filtered_data.reshape((nt, nz, ny, nx))
+    # re-mean data
+    data += data_means
 
 
 def is_valid_melodic_dir(dirpath):
@@ -626,9 +631,10 @@ def denoising(infile, outfile, mix, denoise_indices, aggressive=False):
         nib.save(nii, outfile)
         return
 
-    data = nii.get_data().T
-    # a bit icky but seems to be the standard way to write data back to a nifti image
-    nii.get_data()[:] = reg_filter(data, design=mix, components=denoise_indices, aggressive=aggressive).T
+    # for memory efficiency we update image data in-place
+    # get_data() returns the numpy image data as F-contig (nx, ny, nz, nt)
+    # the transpose gives us a C-contig (nt, nz, ny, nx) view.
+    reg_filter(nii.get_data().T, design=mix, components=denoise_indices, aggressive=aggressive)
     nib.save(nii, outfile)
 
 

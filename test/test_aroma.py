@@ -114,7 +114,8 @@ def test_reg_filter_1():
     design = np.loadtxt('refout/melodic.ica/melodic_mix')
     indices = list(np.loadtxt('refout/classified_motion_ICs.txt', dtype=int, delimiter=',') - 1)
     
-    filtered_data = aroma.reg_filter(data.T, design, indices, aggressive=False).T
+    aroma.reg_filter(data.T, design, indices, aggressive=False)
+    filtered_data = data
     ref_filter_data = nib.load('refout/denoised_func_data_nonaggr.nii.gz').get_data()
 
     assert np.allclose(filtered_data, ref_filter_data, rtol=1e-06, atol=1e-03)
@@ -125,7 +126,8 @@ def test_reg_filter_2():
     design = np.loadtxt('refout/melodic.ica/melodic_mix')
     indices = list(np.loadtxt('refout/classified_motion_ICs.txt', dtype=int, delimiter=',') - 1)
     
-    filtered_data = aroma.reg_filter(data.T, design, indices, aggressive=True).T
+    aroma.reg_filter(data.T, design, indices, aggressive=True)
+    filtered_data = data
     ref_filter_data = nib.load('refout/denoised_func_data_aggr.nii.gz').get_data()
 
     assert np.allclose(filtered_data, ref_filter_data, rtol=1e-06, atol=1e-03)
@@ -199,7 +201,7 @@ def test_feature_time_series():
         seed=31415926
     )   
     scores = np.loadtxt('refout/feature_scores.txt').T
-    assert ((max_rp_correl - scores[0])**2).sum() < 1e-6 
+    assert ((max_rp_correl - scores[0])**2).sum() < 1e-6
 
 
 def test_feature_frequency():
@@ -208,7 +210,7 @@ def test_feature_frequency():
         t_r=2.0
     )
     scores = np.loadtxt('refout/feature_scores.txt').T
-    assert ((hfc - scores[2])**2).sum() < 1e-6    
+    assert ((hfc - scores[2])**2).sum() < 1e-6
 
 
 def test_feature_spatial():
