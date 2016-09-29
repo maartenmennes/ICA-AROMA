@@ -2,3 +2,6 @@
 __pycache__/
 .ipynb_checkpoints/
 .spyderproject
+build/
+dist/
+*.egg-info/
