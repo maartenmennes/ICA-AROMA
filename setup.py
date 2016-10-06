@@ -8,7 +8,7 @@ def readme(fname):
 
 setup(
     name='aroma',
-    description='ICA-AROMA',
+    description='ICA-based Automatic Removal Of Motion Artifacts',
     long_description=readme('README.md'),
     author="R. Pruim, Ronald Hartley-Davies",
     author_email="r.pruim@donders.ru.nl, rtrhd@bristol.ac.uk",
@@ -17,6 +17,8 @@ setup(
     url="http://github.com/rtrhd/icaaroma",
     keywords="ics fmri motion",
     packages=['icaaroma'],
+    install_requires=['numpy>=1.6.0', 'nibabel>=1.3.0'],
+    tests_require=['nose'],
     entry_points={'console_scripts':['aroma = icaaroma.aroma:main']},
     package_data={'icaaroma': ['data/mask_*.nii.gz']},
     classifiers=[
