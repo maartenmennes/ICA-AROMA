@@ -19,4 +19,4 @@ test:
 	(cd test; ./nosetests test_aroma.py)
 
 clean:
-	rm -rf build/ dist/ *.pyc */*.pyc */__pycache__ test/out/ *.egg-info
+	rm -rf build/ dist/ *.pyc __pycache__ */*.pyc */__pycache__ test/out/ *.egg-info

@@ -3,35 +3,38 @@ from __future__ import print_function, division
 import sys
 
 import os
-from os.path import join, normpath, isfile, isdir, dirname
-from tempfile import mkstemp, mkdtemp
+from os.path import join, abspath, isfile, isdir
+from tempfile import mkdtemp
 import filecmp
 import shutil
 
 import subprocess
 import argparse
 
-from nose.tools import assert_raises
-
-sys.path.insert(0, normpath(join('..', 'icaaroma')))
-
 import numpy as np
 import nibabel as nib
 
-import aroma
+from nose.tools import assert_raises
+
+sys.path.insert(0, abspath('..'))
+from icaaroma import aroma
+
 
 # Monkey patch aroma for testing
-aroma.AROMADIR = normpath(join('..', 'icaaroma', 'data'))
+aroma.AROMADIR = abspath(join('..', 'icaaroma', 'data'))
+
 
 def _call(*args, **kwargs):
-    #print(' '.join(args[0]), file=sys.stderr)
+    # print(' '.join(args[0]), file=sys.stderr)
     subprocess.call(*args, **kwargs)
+
 
 aroma.call = _call
 
+
 def setup():
     pass
- 
+
 
 def teardown():
     pass
@@ -113,7 +116,7 @@ def test_reg_filter_1():
     data = nib.load('refin/filtered_func_data.nii.gz').get_data()
     design = np.loadtxt('refout/melodic.ica/melodic_mix')
     indices = list(np.loadtxt('refout/classified_motion_ICs.txt', dtype=int, delimiter=',') - 1)
-    
+
     aroma.reg_filter(data.T, design, indices, aggressive=False)
     filtered_data = data
     ref_filter_data = nib.load('refout/denoised_func_data_nonaggr.nii.gz').get_data()
@@ -125,7 +128,7 @@ def test_reg_filter_2():
     data = nib.load('refin/filtered_func_data.nii.gz').get_data()
     design = np.loadtxt('refout/melodic.ica/melodic_mix')
     indices = list(np.loadtxt('refout/classified_motion_ICs.txt', dtype=int, delimiter=',') - 1)
-    
+
     aroma.reg_filter(data.T, design, indices, aggressive=True)
     filtered_data = data
     ref_filter_data = nib.load('refout/denoised_func_data_aggr.nii.gz').get_data()
@@ -169,9 +172,9 @@ def test_run_ica():
     outdir = mkdtemp(prefix='test_run_ica')
     outfile = join(outdir, 'melodic_IC_thr.nii.gz')
     mix, ftmix = aroma.run_ica(
-        infile='refin/filtered_func_data.nii.gz', 
+        infile='refin/filtered_func_data.nii.gz',
         outfile=outfile,
-        maskfile='refin/mask.nii.gz', # also one in refout/
+        maskfile='refin/mask.nii.gz',  # also one in refout/
         t_r=2.0,
         ndims_ica=0,
         melodic_indir=None,
@@ -199,7 +202,7 @@ def test_feature_time_series():
         np.loadtxt('refout/melodic.ica/melodic_mix'),
         rparams=np.loadtxt('refin/mc/prefiltered_func_data_mcf.par'),
         seed=31415926
-    )   
+    )
     scores = np.loadtxt('refout/feature_scores.txt').T
     assert ((max_rp_correl - scores[0])**2).sum() < 1e-6
 
@@ -326,13 +329,13 @@ def test_parse_cmdline_1():
     assert parsed_args.warp == join(os.getcwd(), 'refin/reg/highres2standard_warp.nii.gz')
     assert parsed_args.seed == 31415926
 
-    assert parsed_args.TR == None
+    assert parsed_args.TR is None
     assert parsed_args.denoise_type == 'nonaggr'
     assert parsed_args.dim == 0
-    assert parsed_args.featdir == None
+    assert parsed_args.featdir is None
     assert parsed_args.loglevel == 'INFO'
-    assert parsed_args.existing_mask == None
-    assert parsed_args.melodic_dir == None
+    assert parsed_args.existing_mask is None
+    assert parsed_args.melodic_dir is None
 
 
 def test_parse_cmdline_2():
@@ -475,7 +478,7 @@ def test_run_aroma():
         outdir=outdir,
         mask='refin/mask.nii.gz',
         dim=0,
-        t_r=2.0 ,
+        t_r=2.0,
         melodic_dir=None,
         affmat='refin/reg/example_func2highres.mat',
         warp='refin/reg/highres2standard_warp.nii.gz',
@@ -483,7 +486,6 @@ def test_run_aroma():
         denoise_type='nonaggr',
         seed=31415926,
         verbose=True)
-
 
     files_to_check_exact = [
         'classification_overview.txt',
@@ -512,6 +514,5 @@ def test_run_aroma():
         nib.load(join('refout', f)).get_data(),
         rtol=1e-06, atol=1e-03
     ), 'File %s numerical mismatch' % f
-
 
     shutil.rmtree(outdir)
