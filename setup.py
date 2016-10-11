@@ -8,7 +8,7 @@ def readme(fname):
 
 setup(
     name='aroma',
-    description='ICA-based Automatic Removal Of Motion Artifacts',
+    description='ICA-based Automatic Removal Of Motion Artefacts',
     long_description=readme('README.md'),
     author="R. Pruim, Ronald Hartley-Davies",
     author_email="r.pruim@donders.ru.nl, rtrhd@bristol.ac.uk",
@@ -28,6 +28,7 @@ setup(
         "License :: OSI Approved :: Apache Software License",
         "Operating System :: POSIX",
         "Programming Language :: Python :: 2",
+        "Programming Language :: Python :: 2.7",
         "Programming Language :: Python :: 3",
         "Topic :: Scientific/Engineering :: Medical Science Apps.",
     ]

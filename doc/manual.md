@@ -2,7 +2,7 @@
 
 ## 1 Introduction
 
-ICA-AROMA (for "ICA-based Automatic Removal Of Motion Artifacts") attempts to identify and remove motion artefacts from fMRI data.
+ICA-AROMA (for "ICA-based Automatic Removal Of Motion Artefacts") attempts to identify and remove motion artefacts from fMRI data.
 To that end it exploits Independent Component Analysis (ICA) to decompose the data into a set of independent components.
 Based on the results of a [FSL-MELODIC](http://fsl.fmrib.ox.ac.uk/fsl/fslwiki/MELODIC) ICA decomposition, ICA-AROMA automatically
 identifies which of these components are related to head motion, by using four robust and standardized features.
@@ -32,7 +32,7 @@ a `Makefile` included for the standalone installation.
 ## 3 Requirements
 
 - [FSL](http://fsl.fmrib.ox.ac.uk/fsl/fslwiki/)
-- [Python](https://www.python.org/) (either >=3.5 or 2.7)
+- [Python](https://www.python.org/) (either 3.X or 2.7)
 - [Numpy](http://www.numpy.org/)
 - [Nibabel](http://nipy.org/nibabel/)
 
@@ -55,7 +55,7 @@ $ sudo python setup.py install
 ```
 or as a standalone script `aroma`
 ```
-$ sudo make install
+$ sudo make standalone
 ```
 Either way an executable python script called `aroma` will be installed to `/usr/local/bin`.
 
