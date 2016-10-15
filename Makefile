@@ -3,7 +3,7 @@ BASEDIR := /usr/local
 BINDIR  := $(BASEDIR)/bin
 DATADIR := $(BASEDIR)/share/aroma
 
-.PHONY: info build install standalone test clean
+.PHONY: info build install standalone tests clean
 info:
 	$(info type "make install" to install as a python package or "make standalone" to install icaaroma directly to $(BINDIR))
 
@@ -20,9 +20,10 @@ standalone:
 	install -m 0644 icaaroma/data/mask_edge.nii.gz $(DATADIR)
 	install -m 0644 icaaroma/data/mask_out.nii.gz $(DATADIR)
 
-test:
-	(cd test; ./nosetests test_aroma.py)
+tests:
+	(cd test; make tests)
 
 clean:
-	rm -rf build/ dist/ *.pyc __pycache__ */*.pyc */__pycache__ test/out/ *.egg-info
+	rm -rf build/ dist/ *.pyc __pycache__ */*.pyc */__pycache__ *.egg-info
 	(cd ipynb; make clean)
+	(cd test; make clean)
