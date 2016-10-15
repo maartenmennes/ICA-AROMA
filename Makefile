@@ -1,4 +1,3 @@
-# Install directly as standalone python script rather than as a package
 BASEDIR := /usr/local
 BINDIR  := $(BASEDIR)/bin
 DATADIR := $(BASEDIR)/share/aroma
@@ -13,6 +12,7 @@ build:
 install:
 	python setup.py install
 
+# Install directly as standalone python script rather than as a package
 standalone:
 	install -T -m 0755 icaaroma/aroma.py $(BINDIR)/aroma
 	mkdir -p $(DATADIR)
@@ -21,9 +21,9 @@ standalone:
 	install -m 0644 icaaroma/data/mask_out.nii.gz $(DATADIR)
 
 tests:
-	(cd test; make tests)
+	(cd tests; make tests)
 
 clean:
 	rm -rf build/ dist/ *.pyc __pycache__ */*.pyc */__pycache__ *.egg-info
 	(cd ipynb; make clean)
-	(cd test; make clean)
+	(cd tests; make clean)
