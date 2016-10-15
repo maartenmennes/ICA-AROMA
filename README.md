@@ -7,7 +7,7 @@ ICA-AROMA (*ICA-based Automatic Removal Of Motion Artefacts*) is a data-driven m
 
 Note that some earlier versions of the original ICA-AROMA scripts (v0.1-beta and v0.2-beta) contained a mistake at the denoising stage of the method that led to incorrect output. The issue was resolved in version v0.3-beta (27th of April 2015) onwards.
 
-### v0.3-beta to v0.4
+### v0.3-beta to v0.4.0
 - port to python 2/3
 - general refactor
 - speed up and simplify feature calculations

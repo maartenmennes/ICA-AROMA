@@ -12,7 +12,7 @@ setup(
     long_description=readme('README.md'),
     author="R. Pruim, Ronald Hartley-Davies",
     author_email="r.pruim@donders.ru.nl, rtrhd@bristol.ac.uk",
-    version='0.4',
+    version='0.4.0',
     license='Apache Software License',
     url="http://github.com/rtrhd/icaaroma",
     keywords="ics fmri motion",
