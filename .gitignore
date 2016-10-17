@@ -4,5 +4,7 @@ __pycache__/
 .spyderproject
 build/
 dist/
+tests/refin
+tests/refout
 *.egg-info/
 ipynb/*.nii.gz
