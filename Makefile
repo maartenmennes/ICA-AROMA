@@ -27,3 +27,10 @@ clean:
 	rm -rf build/ dist/ *.pyc __pycache__ */*.pyc */__pycache__ *.egg-info
 	(cd ipynb; make clean)
 	(cd tests; make clean)
+
+docker:
+	docker build -t rtrhd/aroma:latest .
+	@echo ""
+	@echo "Built a docker image. Try running:"
+	@echo "    " "\"docker run --rm rtrhd/aroma\""
+	@echo "or  " "\"docker run --rm rtrhd/aroma make tests\""
