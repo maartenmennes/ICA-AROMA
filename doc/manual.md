@@ -43,13 +43,12 @@ to be available in a directory specified by the environment variable `$FSLDIR` (
 on neurodebian systems (`/usr/share/fsl/5.0/bin`).
 
 ## 4 Installation
-From a local clone of the repository on [github](https://github.com/rtrhd/ICA-AROMA/tree/rhdclean):
+From a local clone of the repository on [github](https://github.com/rtrhd/ICA-AROMA):
 ```
 $ git clone https://github.com/rtrhd/ICA-AROMA.git
 $ cd ICA-AROMA
-$ git checkout rhdclean
 ```
-either install as a package `icaaroma` to the system python
+either install as a package `icaaroma` in the system (or other) python
 ```
 $ sudo python setup.py install
 ```
@@ -57,12 +56,13 @@ or as a standalone script `aroma`
 ```
 $ sudo make standalone
 ```
-Either way an executable python script called `aroma` will be installed to `/usr/local/bin`.
+Either way an executable python script called `aroma` will be installed in `/usr/local/bin`.
 
 To run the package `nose` tests the following may be used:
 ```
 $ make test
 ```
+These include valudation against the results of previous versions.
 
 ## 5 Run ICA-AROMA - generic
 
@@ -88,7 +88,7 @@ Example:
 ```no-highlight
 $ aroma \
     --in func_smoothed.nii.gz --out ICA_AROMA \
-    --affmat reg/func2highres.mat
+    --affmat reg/func2highres.mat \
     --warp reg/highres2standard_warp.nii.gz --motionparams mc/rest_mcf.par
 ```
 
@@ -256,3 +256,5 @@ The additional python package `nibabel` is required for reading nifti format fil
 
 ## 9.3 Testing
 Some `nose` tests of the module are included in `test/test_aroma.py` together with a customized version of `nosetests`.
+These included comparisons with results from previous versions of ICA-AROMA. Note, however, that some of these tests will
+fail with python 3 as the behaviour of random.sample has changed even with the same seed value.
