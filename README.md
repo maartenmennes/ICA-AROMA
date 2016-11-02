@@ -28,8 +28,11 @@ Note that some earlier versions of the original ICA-AROMA scripts (v0.1-beta and
 This is tested with python versions 2.7 and 3.5, specifically those distributed in the [anaconda](https://docs.continuum.io/anaconda/) python distribution. It should also work with the system python (generally 2.7) on recent versions of Linux. In addition to a python installation the following is required:
 
  - The [FSL](http://fsl.fmrib.ox.ac.uk/fsl/fslwiki/) software suite.
- - The [numpy](http://www.numpy.org/) python package
- - The [nibabel](http://nipy.org/nibabel/) python package.
+ - The [numpy](http://www.numpy.org/) and [nibabel](http://nipy.org/nibabel/) python packages
 
  These are available on ubuntu and debian systems via the [neurodebian](http://neuro.debian.net/) repository or may be installed explicitly via
  downloads and/or `pip install`.
+
+## Licensing
+
+ICA-AROMA is distributed under the [Apache](LICENSE.md) licence.

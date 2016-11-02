@@ -235,7 +235,7 @@ referencing the `icaaroma` package if installed with `setup.py` or `pip`.
 The following changes have also been made to the command line arguments to conform a little
 more closely with the usual gnu conventions.
 
-|   |Former |    Meaning              |   |  V0.4        |
+|   |Former |    Meaning              |   |  Current     |
 |---|-------|-------------------------|---|--------------|
 |-o |-out   |output directory name    |-o |--out         |
 |-i |-in    |input fMRI data          |-i |--in          |
@@ -255,6 +255,8 @@ In addition, argument filenames no longer have to be absolute paths.
 The additional python package `nibabel` is required for reading nifti format files.
 
 ## 9.3 Testing
-Some `nose` tests of the module are included in `test/test_aroma.py` together with a customized version of `nosetests`.
-These included comparisons with results from previous versions of ICA-AROMA. Note, however, that some of these tests will
-fail with python 3 as the behaviour of random.sample has changed even with the same seed value.
+Some `nose` tests of the module are included in `test/test_aroma.py` together with a customized version of `nosetests` to
+suppress chatter on stderr.
+
+The tests include comparisons with results from previous versions of ICA-AROMA. Note, however, that some of these tests will
+fail with python 3 as the behaviour of random.sample has changed from python 2 even given the same seed value.
