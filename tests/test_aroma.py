@@ -31,6 +31,39 @@ def _call(*args, **kwargs):
 
 aroma.call = _call
 
+# support conditional test skipping: http://stackoverflow.com/questions/21936292/
+from unittest import SkipTest, TestCase
+import functools
+import types
+
+def _id(obj):
+    return obj
+
+def skip(reason):
+    """Unconditionally skip a test."""
+    def decorator(test_item):
+        if not isinstance(test_item, (type,)):
+            @functools.wraps(test_item)
+            def skip_wrapper(*args, **kwargs):
+                raise SkipTest(reason)
+            test_item = skip_wrapper
+        elif issubclass(test_item, TestCase):
+            @classmethod
+            @functools.wraps(test_item.setUpClass)
+            def skip_wrapper(*args, **kwargs):
+                raise SkipTest(reason)
+            test_item.setUpClass = skip_wrapper
+        test_item.__unittest_skip__ = True
+        test_item.__unittest_skip_why__ = reason
+        return test_item
+    return decorator
+
+def skipIf(condition, reason):
+    """Skip a test if the condition is true."""
+    if condition:
+        return skip(reason)
+    return _id
+
 
 def setup():
     pass
@@ -197,6 +230,7 @@ def test_register_to_mni():
     shutil.rmtree(outdir)
 
 
+@skipIf(sys.version_info >= (3,), "Behaviour of random.select changed in python 3")
 def test_feature_time_series():
     max_rp_correl = aroma.feature_time_series(
         np.loadtxt('refout/melodic.ica/melodic_mix'),
@@ -471,6 +505,7 @@ def test_create_mask():
 
 
 # Test against previous run with original program
+@skipIf(sys.version_info >= (3,), "Behaviour of random.select changed in python 3")
 def test_run_aroma():
     outdir = mkdtemp(prefix='test_run_aroma')
     aroma.run_aroma(
