@@ -11,7 +11,7 @@ import shutil
 from functools import partial
 
 from tempfile import mkdtemp
-from subprocess import call
+from subprocess import check_call, CalledProcessError
 
 import logging
 import argparse
@@ -255,7 +255,7 @@ def run_ica(infile, outfile, maskfile, t_r, ndims_ica=0, melodic_indir=None, see
         ]
         if seed is not None:
             cmdline.append('--seed=%u' % seed)
-        call(cmdline)
+        check_call(cmdline)
 
     assert is_valid_melodic_dir(working_dir)
 
@@ -272,15 +272,15 @@ def run_ica(infile, outfile, maskfile, t_r, ndims_ica=0, melodic_indir=None, see
     zfiles_out = [join(working_dir, 'stats', 'thresh_zstat_fixed%d.nii.gz' % i) for i in range(1, ncomponents+1)]
     for zfile_in, zfile_out in zip(zfiles_in, zfiles_out):
         nmaps = nifti_dims(zfile_in)[3]  # will be 1 or 2
-        #             input,      output, first frame (base 0), number of frames
-        call([FSLROI, zfile_in, zfile_out, '%d' % (nmaps-1), '1'])
+        #                      input, output, first frame (base 0), number of frames
+        check_call([FSLROI, zfile_in, zfile_out, '%d' % (nmaps-1), '1'])
 
     # Merge all mixture modelled Z-maps within the output directory (NB: -t => concatenate in time)
     melodic_thr_file = join(working_dir, 'melodic_IC_thr.nii.gz')
-    call([FSLMERGE, '-t', melodic_thr_file] + zfiles_out)
+    check_call([FSLMERGE, '-t', melodic_thr_file] + zfiles_out)
 
     # Apply the mask to the merged file (in case pre-run melodic was run with a different mask)
-    call([FSLMATHS, melodic_thr_file, '-mas', maskfile, melodic_thr_file])
+    check_call([FSLMATHS, melodic_thr_file, '-mas', maskfile, melodic_thr_file])
 
     # Outputs
     shutil.copyfile(melodic_thr_file, outfile)
@@ -330,25 +330,25 @@ def register_to_mni(infile, outfile, template=FSLMNI52TEMPLATE, affmat=None, war
             shutil.copyfile(src=infile, dst=outfile)
         else:
             # Resample to 2mm if need be
-            call([
+            check_call([
                 FLIRT, '-ref', template, '-in', infile, '-out', outfile,
                 '-applyisoxfm', '2', '-interp', 'trilinear'
             ])
     elif warp is not None and affmat is None:
         # Only a warp-file, assume already registered to structural, apply warp only
-        call([
+        check_call([
             APPLYWARP, '--ref=%s' % template, '--in=%s' % infile, '--out=%s' % outfile,
             '--warp=%s' % warp, '--interp=trilinear'
         ])
     elif affmat is not None and warp is None:
         # Only a affmat-file, perform affine registration to MNI
-        call([
+        check_call([
             FLIRT, '-ref', template, '-in', infile, '-out', outfile,
             '-applyxfm', '-init', affmat, '-interp', 'trilinear'
         ])
     else:
         # Both an affmat and a warp file specified, apply both
-        call([
+        check_call([
             APPLYWARP, '--ref=%s' % template, '--in=%s' % infile, '--out=%s' % outfile,
             '--warp=%s' % warp, '--premat=%s' % affmat, '--interp=trilinear'
         ])
@@ -705,7 +705,10 @@ def parse_cmdline(args):
 
     # Required arguments
     requiredargs = parser.add_argument_group('Required arguments')
-    requiredargs.add_argument('-o', '--out', dest="outdir", required=True, type=_valid_outdir, help='Output directory name')
+    requiredargs.add_argument(
+        '-o', '--out', dest="outdir", required=True, type=_valid_outdir,
+        help='Output directory name'
+    )
 
     # Required arguments in non-Feat mode
     nonfeatargs = parser.add_argument_group('Required arguments - generic mode')
@@ -817,14 +820,14 @@ def create_mask(infile, outfile, featdir=None):
 
     if featdir is None:
         # RHD TODO: just binarize stddev of input file?
-        call([FSLMATHS, infile, '-Tstd', '-bin', outfile])
+        check_call([FSLMATHS, infile, '-Tstd', '-bin', outfile])
         return
 
     # Try and use example_func in feat dir to create a mask
     example_func = join(featdir, 'example_func.nii.gz')
     if isfile(example_func):
         temp_dir = mkdtemp(prefix='create_mask')
-        call([BET, example_func, join(temp_dir, 'bet'), '-f', '0.3', '-n', '-m', '-R'])
+        check_call([BET, example_func, join(temp_dir, 'bet'), '-f', '0.3', '-n', '-m', '-R'])
         shutil.move(src=join(temp_dir, 'bet_mask.nii.gz'), dst=outfile)
         shutil.rmtree(temp_dir)
     else:
@@ -833,7 +836,7 @@ def create_mask(infile, outfile, featdir=None):
             ' A mask will be created including all voxels with varying intensity over time in the fMRI data.' +
             ' Please check!'
         )
-        call([FSLMATHS, infile, '-Tstd', '-bin', outfile])
+        check_call([FSLMATHS, infile, '-Tstd', '-bin', outfile])
 
 
 def run_aroma(infile, outdir, mask, dim, t_r, melodic_dir, affmat, warp, mc, denoise_type, seed=None, verbose=True):
@@ -957,20 +960,27 @@ def main(argv=sys.argv):
     else:
         create_mask(infile, outfile=mask)
 
-    run_aroma(
-        infile=infile,
-        outdir=args.outdir,
-        mask=mask,
-        dim=args.dim,
-        t_r=TR,
-        melodic_dir=melodic_dir,
-        affmat=affmat,
-        warp=warp,
-        mc=mc,
-        denoise_type=args.denoise_type,
-        seed=args.seed
-    )
-
+    try:
+        run_aroma(
+            infile=infile,
+            outdir=args.outdir,
+            mask=mask,
+            dim=args.dim,
+            t_r=TR,
+            melodic_dir=melodic_dir,
+            affmat=affmat,
+            warp=warp,
+            mc=mc,
+            denoise_type=args.denoise_type,
+            seed=args.seed
+        )
+    except CalledProcessError as e:
+        logging.critical('Error in calling external FSL command: %s. Exiting ...' % e)
+        return 1
+    except Exception as e:
+        logging.critical('Internal Error: %s. Exiting ...' % e)
+        return 1
+    return 0
 
 if __name__ == '__main__':
     # installed as standalone script
@@ -987,9 +997,7 @@ if __name__ == '__main__':
             'Unable to find aroma data directory with mask files. ' +
             'Exiting ...')
         sys.exit(1)
-
-    main()
-    sys.exit(0)
+    sys.exit(main())
 else:
     # installed as python package
     try:
@@ -998,4 +1006,3 @@ else:
     except ImportError:
         PKGDATA = join(dirname(__file__), 'data')
     AROMADIR = os.environ.get("AROMADIR", PKGDATA)
-
