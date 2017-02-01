@@ -951,7 +951,7 @@ def main(argv=sys.argv):
 
     mask = join(args.outdir, 'mask.nii.gz')
     if args.existing_mask is not None:
-        shutil.copyfile(src=args.existing_mask, outfile=mask)
+        shutil.copyfile(src=args.existing_mask, dst=mask)
     elif using_feat:
         create_mask(infile, outfile=mask, featdir=args.featdir)
     else:
