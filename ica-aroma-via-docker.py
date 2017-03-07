@@ -1,3 +1,4 @@
+from __future__ import print_function
 # Simple wrapper for the ICA-AROMA python scripts, to hand them absolute paths.
 # Required to make the tool work in cbrain via the docker container
 

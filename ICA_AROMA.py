@@ -1,9 +1,13 @@
 #!/usr/bin/env python
 
 # Import required modules
+from __future__ import print_function
+from future import standard_library
+standard_library.install_aliases()
+from builtins import str
 import os
 import argparse
-import commands
+import subprocess
 import ICA_AROMA_functions as aromafunc
 import shutil
 
@@ -39,8 +43,8 @@ optoptions.add_argument('-den', dest="denType", default="nonaggr", help='Type of
 optoptions.add_argument('-md','-meldir', dest="melDir", default="",help='MELODIC directory name, in case MELODIC has been run previously.')
 optoptions.add_argument('-dim', dest="dim", default=0,help='Dimensionality reduction into #num dimensions when running MELODIC (default: automatic estimation; i.e. -dim 0)',type=int)
 
-print '\n------------------------------- RUNNING ICA-AROMA ------------------------------- '
-print '--------------- \'ICA-based Automatic Removal Of Motion Artifacts\' --------------- \n'
+print('\n------------------------------- RUNNING ICA-AROMA ------------------------------- ')
+print('--------------- \'ICA-based Automatic Removal Of Motion Artifacts\' --------------- \n')
 
 
 #--------------------------------------- PARSE ARGUMENTS ---------------------------------------#
@@ -53,8 +57,8 @@ if args.inFeat:
 
 	# Check whether the Feat directory exists
 	if not os.path.isdir(inFeat): 
-		print 'The specified Feat directory does not exist.'
-		print '\n----------------------------- ICA-AROMA IS CANCELED -----------------------------\n'
+		print('The specified Feat directory does not exist.')
+		print('\n----------------------------- ICA-AROMA IS CANCELED -----------------------------\n')
 		exit()
 
 	# Define the variables which should be located in the Feat directory
@@ -65,16 +69,16 @@ if args.inFeat:
 
 	# Check whether these files actually exist
 	if not os.path.isfile(inFile): 
-		print 'Missing filtered_func_data.nii.gz in Feat directory.'
+		print('Missing filtered_func_data.nii.gz in Feat directory.')
 		cancel=True
 	if not os.path.isfile(mc): 
-		print 'Missing mc/prefiltered_func_data_mcf.mat in Feat directory.'
+		print('Missing mc/prefiltered_func_data_mcf.mat in Feat directory.')
 		cancel=True
 	if not os.path.isfile(affmat): 
-		print 'Missing reg/example_func2highres.mat in Feat directory.' 
+		print('Missing reg/example_func2highres.mat in Feat directory.') 
 		cancel=True
 	if not os.path.isfile(warp): 
-		print 'Missing reg/highres2standard_warp.nii.gz in Feat directory.'
+		print('Missing reg/highres2standard_warp.nii.gz in Feat directory.')
 		cancel=True
 	
 	# Check whether a melodic.ica directory exists
@@ -91,24 +95,24 @@ else:
 
 	# Check whether the files exist
 	if not inFile:
-		print 'No input file specified.'
+		print('No input file specified.')
 	else:
 		if not os.path.isfile(inFile): 
-			print 'The specified input file does not exist.'
+			print('The specified input file does not exist.')
 			cancel=True
 	if not mc:
-		print 'No mc file specified.'
+		print('No mc file specified.')
 	else:
 		if not os.path.isfile(mc): 
-			print 'The specified mc file does does not exist.'
+			print('The specified mc file does does not exist.')
 			cancel=True
 	if affmat:
 		if not os.path.isfile(affmat): 
-			print 'The specified affmat file does not exist.'
+			print('The specified affmat file does not exist.')
 			cancel=True
 	if warp:
 		if not os.path.isfile(warp): 
-			print 'The specified warp file does not exist.'
+			print('The specified warp file does not exist.')
 			cancel=True
 
 # Parse the arguments which do not depend on whether a Feat directory has been specified
@@ -119,17 +123,17 @@ denType = args.denType
 # Check if the mask exists, when specified.
 if args.mask:
 	if not os.path.isfile(args.mask):
-		print 'The specified mask does not exist.'
+		print('The specified mask does not exist.')
 		cancel=True
 
 # Check if the type of denoising is correctly specified, when specified
 if not (denType == 'nonaggr') and not (denType == 'aggr') and not (denType == 'both') and not (denType == 'no'):
-	print 'Type of denoising was not correctly specified. Non-aggressive denoising will be run.'
+	print('Type of denoising was not correctly specified. Non-aggressive denoising will be run.')
 	denType='nonaggr'
 
 # If the criteria for file/directory specifications have not been met. Cancel ICA-AROMA.
 if cancel:
-	print '\n----------------------------- ICA-AROMA IS CANCELED -----------------------------\n'
+	print('\n----------------------------- ICA-AROMA IS CANCELED -----------------------------\n')
 	exit()
 
 #------------------------------------------- PREPARE -------------------------------------------#
@@ -148,13 +152,13 @@ else:
 	cmd = ' '.join([os.path.join(fslDir,'fslinfo'), 
 		inFile, 
 		'| grep pixdim4 | awk \'{print $2}\''])
-	TR=float(commands.getoutput(cmd))
+	TR=float(subprocess.getoutput(cmd))
 
 # Check TR
 if TR == 1:
-	print 'Warning! Please check whether the determined TR (of ' + str(TR) + 's) is correct!\n'
+	print('Warning! Please check whether the determined TR (of ' + str(TR) + 's) is correct!\n')
 elif TR == 0:
-	print 'TR is zero. ICA-AROMA requires a valid TR and will therefore exit. Please check the header, or define the TR as an additional argument.\n----------------------------- ICA-AROMA IS CANCELED -----------------------------\n'
+	print('TR is zero. ICA-AROMA requires a valid TR and will therefore exit. Please check the header, or define the TR as an additional argument.\n----------------------------- ICA-AROMA IS CANCELED -----------------------------\n')
 
 # Define/create mask. Either by making a copy of the specified mask, or by creating a new one.
 mask = os.path.join(outDir,'mask.nii.gz')
@@ -174,7 +178,7 @@ else:
 			os.remove(os.path.join(outDir,'bet.nii.gz'))
 	else:
 		if args.inFeat:
-			print ' - No example_func was found in the Feat directory. A mask will be created including all voxels with varying intensity over time in the fMRI data. Please check!\n'
+			print(' - No example_func was found in the Feat directory. A mask will be created including all voxels with varying intensity over time in the fMRI data. Please check!\n')
 		os.system(' '.join([os.path.join(fslDir,'fslmaths'),
 			inFile,
 			'-Tstd -bin',
@@ -183,31 +187,31 @@ else:
 
 #---------------------------------------- Run ICA-AROMA ----------------------------------------#
 
-print 'Step 1) MELODIC'
+print('Step 1) MELODIC')
 aromafunc.runICA(fslDir, inFile, outDir, melDir, mask, dim, TR)
 
-print 'Step 2) Automatic classification of the components'
-print '  - registering the spatial maps to MNI'
+print('Step 2) Automatic classification of the components')
+print('  - registering the spatial maps to MNI')
 melIC = os.path.join(outDir,'melodic_IC_thr.nii.gz')
 melIC_MNI =  os.path.join(outDir,'melodic_IC_thr_MNI2mm.nii.gz')
 aromafunc.register2MNI(fslDir, melIC, melIC_MNI, affmat, warp)
 
-print '  - extracting the CSF & Edge fraction features'
+print('  - extracting the CSF & Edge fraction features')
 edgeFract, csfFract = aromafunc.feature_spatial(fslDir, outDir, scriptDir, melIC_MNI)
 
-print '  - extracting the Maximum RP correlation feature'
+print('  - extracting the Maximum RP correlation feature')
 melmix = os.path.join(outDir,'melodic.ica','melodic_mix')
 maxRPcorr = aromafunc.feature_time_series(melmix, mc)
 
-print '  - extracting the High-frequency content feature'
+print('  - extracting the High-frequency content feature')
 melFTmix = os.path.join(outDir,'melodic.ica','melodic_FTmix')
 HFC = aromafunc.feature_frequency(melFTmix, TR)
 
-print '  - classification'
+print('  - classification')
 motionICs = aromafunc.classification(outDir, maxRPcorr, edgeFract, HFC, csfFract)
 
 if (denType != 'no'):
-	print 'Step 3) Data denoising'
+	print('Step 3) Data denoising')
 	aromafunc.denoising(fslDir, inFile, outDir, melmix, denType, motionICs)
 
 # Remove thresholded melodic_IC file
@@ -216,4 +220,4 @@ os.remove(melIC)
 # Revert to old directory
 os.chdir(cwd)
 
-print '\n----------------------------------- Finished -----------------------------------\n'
+print('\n----------------------------------- Finished -----------------------------------\n')
