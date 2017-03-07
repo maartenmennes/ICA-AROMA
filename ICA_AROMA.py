@@ -27,7 +27,7 @@ reqoptions.add_argument('-o', '-out', dest="outDir", required=True, help='Output
 # Required options in non-Feat mode
 nonfeatoptions = parser.add_argument_group('Required arguments - generic mode')
 nonfeatoptions.add_argument('-i', '-in',dest="inFile", required=False, help='Input file name of fMRI data (.nii.gz)')
-nonfeatoptions.add_argument('-mc', dest="mc", required=False, help='File name of the warp-file describing the non-linear registration (e.g., FSL FNIRT) of the structural data to MNI152 space (.nii.gz). (e.g., /home/user/PROJECT/SUBJECT.feat/mc/prefiltered_func_data_mcf.par')
+nonfeatoptions.add_argument('-mc', dest="mc", required=False, help='File name of the motion parameters obtained after motion realingment (e.g., FSL mcflirt). Note that the order of parameters does not matter, should your file not originate from FSL mcflirt. (e.g., /home/user/PROJECT/SUBJECT.feat/mc/prefiltered_func_data_mcf.par')
 nonfeatoptions.add_argument('-a','-affmat', dest="affmat", default="", help='File name of the mat-file describing the affine registration (e.g., FSL FLIRT) of the functional data to structural space (.mat file). (e.g., /home/user/PROJECT/SUBJECT.feat/reg/example_func2highres.mat')
 nonfeatoptions.add_argument('-w','-warp', dest="warp", default="", help='File name of the warp-file describing the non-linear registration (e.g., FSL FNIRT) of the structural data to MNI152 space (.nii.gz). (e.g., /home/user/PROJECT/SUBJECT.feat/reg/highres2standard_warp.nii.gz')
 nonfeatoptions.add_argument('-m','-mask', dest="mask", default="", help='File name of the mask to be used for MELODIC (denoising will be performed on the original/non-masked input data)')
