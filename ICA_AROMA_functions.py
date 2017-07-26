@@ -270,7 +270,8 @@ def feature_time_series(melmix, mc):
 		maxTC[i,:] = corMatrixAbs.max(axis=1)
 
 	# Get the mean maximum correlation over all random splits
-	maxRPcorr = maxTC.mean(axis=0)
+	# nanmean to deal with occasional nans popping up in the correlation calculation
+	maxRPcorr = np.nanmean(maxTC, axis=0)
 
 	# Return the feature score
 	return maxRPcorr
