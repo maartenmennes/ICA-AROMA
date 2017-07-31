@@ -273,6 +273,7 @@ def feature_time_series(melmix, mc):
 	# nanmean to deal with occasional nans popping up in the correlation calculation
 	maxRPcorr = np.nanmean(maxTC, axis=0)
 
+
 	# Return the feature score
 	return maxRPcorr
 
@@ -484,8 +485,10 @@ def classification(outDir, maxRPcorr, edgeFract, HFC, csfFract):
 
 	# Put the indices of motion-classified ICs in a text file
 	txt = open(os.path.join(outDir,'classified_motion_ICs.txt'),'w')
-	if len(motionICs) != 0:
+	if motionICs.size > 1:  # and len(motionICs) != 0: if motionICs is not None and 
 		txt.write(','.join(['%.0f' % num for num in (motionICs+1)]))
+        elif motionICs.size==1:
+		txt.write('%.0f' % (motionICs+1))
 	txt.close()
 
 	# Create a summary overview of the classification
@@ -523,18 +526,22 @@ def denoising(fslDir, inFile, outDir, melmix, denType, denIdx):
 	import numpy as np
 
 	# Check if denoising is needed (i.e. are there components classified as motion)
-	check = len(denIdx) > 0
+	check = denIdx.size > 0
 
 	if check==1:
 		# Put IC indices into a char array
-		denIdxStr = np.char.mod('%i',(denIdx+1))
+                if denIdx.size == 1:
+                  denIdxStrJoin =  "%d"%(denIdx+1)
+                else:
+		  denIdxStr = np.char.mod('%i',(denIdx+1))
+                  denIdxStrJoin =  ','.join(denIdxStr)
 
 		# Non-aggressive denoising of the data using fsl_regfilt (partial regression), if requested
 		if (denType == 'nonaggr') or (denType == 'both'):		
 			os.system(' '.join([os.path.join(fslDir,'fsl_regfilt'),
 				'--in=' + inFile,
 				'--design=' + melmix,
-				'--filter="' + ','.join(denIdxStr) + '"',
+				'--filter="' + denIdxStrJoin + '"',
 				'--out=' + os.path.join(outDir,'denoised_func_data_nonaggr.nii.gz')]))
 
 		# Aggressive denoising of the data using fsl_regfilt (full regression)
@@ -542,7 +549,7 @@ def denoising(fslDir, inFile, outDir, melmix, denType, denIdx):
 			os.system(' '.join([os.path.join(fslDir,'fsl_regfilt'),
 				'--in=' + inFile,
 				'--design=' + melmix,
-				'--filter="' + ','.join(denIdxStr) + '"',
+				'--filter="' + denIdxStrJoin + '"',
 				'--out=' + os.path.join(outDir,'denoised_func_data_aggr.nii.gz'),
 				'-a']))
 	else:
