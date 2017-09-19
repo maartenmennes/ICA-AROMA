@@ -531,10 +531,10 @@ def denoising(fslDir, inFile, outDir, melmix, denType, denIdx):
 	if check==1:
 		# Put IC indices into a char array
                 if denIdx.size == 1:
-                  denIdxStrJoin =  "%d"%(denIdx+1)
+                    denIdxStrJoin =  "%d"%(denIdx+1)
                 else:
-		  denIdxStr = np.char.mod('%i',(denIdx+1))
-                  denIdxStrJoin =  ','.join(denIdxStr)
+                    denIdxStr = np.char.mod('%i',(denIdx+1))
+                    denIdxStrJoin =  ','.join(denIdxStr)
 
 		# Non-aggressive denoising of the data using fsl_regfilt (partial regression), if requested
 		if (denType == 'nonaggr') or (denType == 'both'):		
