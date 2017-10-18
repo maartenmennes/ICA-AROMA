@@ -416,7 +416,8 @@ def feature_time_series(mix, rparams, seed=None):
         max_correls[i] = np.abs(correl_both).max(axis=1)
 
     # Feature score is the mean of the maximum correlation over all the random splits
-    return max_correls.mean(axis=0)
+    # Avoid propagating occasional nans that arise in artificial test cases
+    return np.nanmean(max_correls, axis=0)
 
 
 def feature_frequency(ftmix, t_r):
