@@ -2,13 +2,15 @@
 
 # Functions for ICA-AROMA v0.3 beta
 
-from __future__ import division
-from __future__ import print_function
+from __future__ import division, print_function
+
+from builtins import range, str
+
+import numpy as np
 from future import standard_library
-standard_library.install_aliases()
-from builtins import str
-from builtins import range
 from past.utils import old_div
+
+standard_library.install_aliases()
 
 
 def runICA(fslDir, inFile, outDir, melDirIn, mask, dim, TR):
@@ -200,89 +202,88 @@ def register2MNI(fslDir, inFile, outFile, affmat, warp):
                             '--interp=trilinear']))
 
 
+def generate_rp_model(mcfpar):
+    """ The model has 36 realignment parameters:
+    1. RP, RP_diff => 12
+    2. All shifted forward => 12
+    3. All shifted backward => 12
+
+    :param mocofile: motion correction file
+    :returns: 36-dim realignment parameter model
+    :rtype: np array
+    """
+    # Axis 0 -- time dimension
+    # length preserving np.diff, by padding with 0s.
+    mcfpar_diff = np.concatenate((np.zeros((1, mcfpar.shape[-1])),
+                                  np.diff(mcfpar, axis=0)),
+                                 axis=0)
+
+    mcfpar12 = np.concatenate((mcfpar,
+                               mcfpar_diff),
+                              axis=1)
+
+    return np.concatenate((mcfpar12,
+                           np.roll(mcfpar12, 1, axis=0),
+                           np.roll(mcfpar12, -1, axis=0)),
+                          axis=1)
+
+
+def corr2_coeff(array_a, array_b):
+    """Fast numpy Row-wise Corr. Coefficients for 2D arrays.
+    See benchmarks at https://stackoverflow.com/a/30143754/3568092
+    :param a: 2D array
+    :param b: 2D array
+    :returns: Corr Matrix between rows of a with rows of b
+    :rtype: 2D array
+
+    """
+    # Center vectors by subtracting row mean.
+    a_centered = array_a - array_a.mean(1)[:, None]
+    b_centered = array_b - array_b.mean(1)[:, None]
+
+    # Sum of squares across rows.
+    a_sos = (a_centered ** 2).sum(1)
+    b_sos = (b_centered ** 2).sum(1)
+
+    norm_factors = np.sqrt(np.dot(a_sos[:, None], b_sos[None]))
+    # Finally get corr coeff
+    return np.dot(a_centered, b_centered.T)/ norm_factors
+
+
 def feature_time_series(melmix, mc):
-    """ This function extracts the maximum RP correlation feature scores. It determines the maximum robust correlation of each component time-series with a model of 72 realigment parameters.
+    """This function extracts the maximum RP correlation feature scores.
+    It determines the maximum robust correlation of each component
+    time-series with a model of 72 realigment parameters.
 
-    Parameters
-    ---------------------------------------------------------------------------------
-    melmix:     Full path of the melodic_mix text file
-    mc:     Full path of the text file containing the realignment parameters
+    :param melmix: path to melodic mix .txt file
+    :param mc: path to mc/mcf.par file
+    :returns: mean max temporal correlation between ICs and RPs.
+    :rtype: ndarray
 
-    Returns
-    ---------------------------------------------------------------------------------
-    maxRPcorr:  Array of the maximum RP correlation feature scores for the components of the melodic_mix file"""
+    """
+    # Number of randomization splits.
+    n_splits = 1000
 
-    # Import required modules
-    import numpy as np
-    import random
-
-    # Read melodic mix file (IC time-series), subsequently define a set of squared time-series
     mix = np.loadtxt(melmix)
-    mixsq = np.power(mix, 2)
-
-    # Read motion parameter file
-    RP6 = np.loadtxt(mc)
-
-    # Determine the derivatives of the RPs (add zeros at time-point zero)
-    RP6_der = np.array(RP6[list(range(1, RP6.shape[0])), :] - RP6[list(range(0, RP6.shape[0] - 1)), :])
-    RP6_der = np.concatenate((np.zeros((1, 6)), RP6_der), axis=0)
-
-    # Create an RP-model including the RPs and its derivatives
-    RP12 = np.concatenate((RP6, RP6_der), axis=1)
-
-    # Add the squared RP-terms to the model
-    RP24 = np.concatenate((RP12, np.power(RP12, 2)), axis=1)
-
-    # Derive shifted versions of the RP_model (1 frame for and backwards)
-    RP24_1fw = np.concatenate((np.zeros((1, 24)), np.array(RP24[list(range(0, RP24.shape[0] - 1)), :])), axis=0)
-    RP24_1bw = np.concatenate((np.array(RP24[list(range(1, RP24.shape[0])), :]), np.zeros((1, 24))), axis=0)
-
-    # Combine the original and shifted mot_pars into a single model
-    RP_model = np.concatenate((RP24, RP24_1fw, RP24_1bw), axis=1)
-
-    # Define the column indices of respectively the squared or non-squared terms
-    idx_nonsq = np.array(np.concatenate((list(range(0, 12)), list(range(24, 36)), list(range(48, 60))), axis=0))
-    idx_sq = np.array(np.concatenate((list(range(12, 24)), list(range(36, 48)), list(range(60, 72))), axis=0))
+    rp_model = generate_rp_model(np.loadtxt(mc))
 
     # Determine the maximum correlation between RPs and IC time-series
-    nSplits = int(1000)
-    maxTC = np.zeros((nSplits, mix.shape[1]))
-    for i in range(0, nSplits):
-        # Get a random set of 90% of the dataset and get associated RP model and IC time-series matrices
-        idx = np.array(random.sample(list(range(0, mix.shape[0])), int(round(0.9 * mix.shape[0]))))
-        RP_model_temp = RP_model[idx, :]
-        mix_temp = mix[idx, :]
-        mixsq_temp = mixsq[idx, :]
+    max_temporal_correlation = np.empty((n_splits, mix.shape[1]))
+    for i in range(0, n_splits):
+        idx = np.random.choice(mix.shape[0], int(round(0.9 * mix.shape[0])))
 
-        # Calculate correlation between non-squared RP/IC time-series
-        RP_model_nonsq = RP_model_temp[:, idx_nonsq]
-        cor_nonsq = np.array(np.zeros((mix_temp.shape[1], RP_model_nonsq.shape[1])))
-        for j in range(0, mix_temp.shape[1]):
-            for k in range(0, RP_model_nonsq.shape[1]):
-                cor_temp = np.corrcoef(mix_temp[:, j], RP_model_nonsq[:, k])
-                cor_nonsq[j, k] = cor_temp[0, 1]
+        mix_sample = mix[idx, :].T
+        rp_sample = rp_model[idx, :].T
 
-        # Calculate correlation between squared RP/IC time-series
-        RP_model_sq = RP_model_temp[:, idx_sq]
-        cor_sq = np.array(np.zeros((mix_temp.shape[1], RP_model_sq.shape[1])))
-        for j in range(0, mixsq_temp.shape[1]):
-            for k in range(0, RP_model_sq.shape[1]):
-                cor_temp = np.corrcoef(mixsq_temp[:, j], RP_model_sq[:, k])
-                cor_sq[j, k] = cor_temp[0, 1]
-
-        # Combine the squared an non-squared correlation matrices
-        corMatrix = np.concatenate((cor_sq, cor_nonsq), axis=1)
+        corr_matrix = np.concatenate((corr2_coeff(mix_sample, rp_sample),
+                                      corr2_coeff(mix_sample ** 2, rp_sample ** 2)),
+                                     axis=1)
 
         # Get maximum absolute temporal correlation for every IC
-        corMatrixAbs = np.abs(corMatrix)
-        maxTC[i, :] = corMatrixAbs.max(axis=1)
+        max_temporal_correlation[i, :] = np.abs(corr_matrix).max(axis=1)
 
     # Get the mean maximum correlation over all random splits
-    # nanmean to deal with occasional nans popping up in the correlation calculation
-    maxRPcorr = np.nanmean(maxTC, axis=0)
-
-    # Return the feature score
-    return maxRPcorr
+    return  np.nanmean(max_temporal_correlation, axis=0)
 
 
 def feature_frequency(melFTmix, TR):
