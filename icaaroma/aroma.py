@@ -245,8 +245,9 @@ def run_ica(infile, outfile, maskfile, t_r, ndims_ica=0, melodic_indir=None, see
     working_dir = mkdtemp(prefix='run_ica')
 
     if is_valid_melodic_dir(melodic_indir):
-        for f in ['melodic_IC.nii.gz', 'melodic_mix', 'melodic_FTmix', 'stats']:
-            shutil.copytree(join(melodic_indir, f), join(working_dir, f))
+        for f in ['melodic_IC.nii.gz', 'melodic_mix', 'melodic_FTmix']:
+            shutil.copy(join(melodic_indir, f), join(working_dir, f))
+        shutil.copytree(join(melodic_indir, 'stats'), join(working_dir, 'stats'))
     else:
         cmdline = [
             MELODIC, '--in=%s' % infile, '--outdir=%s' % working_dir,
