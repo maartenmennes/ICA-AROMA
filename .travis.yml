@@ -9,6 +9,6 @@ before_install:
   - gpg --keyserver ha.pool.sks-keyservers.net --recv-keys DD95CC430502E37EF840ACEEA5D32F012649A5A9
   - gpg --export DD95CC430502E37EF840ACEEA5D32F012649A5A9 | sudo tee /etc/apt/trusted.gpg.d/neurodebian.gpg
   - sudo apt-get update
-  - sudo apt-get install -y --no-install-recommends lynx fsl-5.0-core fsl-mni152-templates
+  - sudo apt-get install -y --no-install-recommends lynx fsl-core fsl-mni152-templates
 script:
   - source /etc/fsl/fsl.sh; make tests
