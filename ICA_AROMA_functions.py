@@ -9,6 +9,7 @@ standard_library.install_aliases()
 from builtins import str
 from builtins import range
 from past.utils import old_div
+import numpy as np
 
 
 def runICA(fslDir, inFile, outDir, melDirIn, mask, dim, TR):
@@ -200,9 +201,19 @@ def register2MNI(fslDir, inFile, outFile, affmat, warp):
                             '--premat=' + affmat,
                             '--interp=trilinear']))
 
+def cross_correlation(a, b):
+    """Cross Correlations between columns of two matrices"""
+    assert a.ndim == b.ndim == 2
+    _, ncols_a = a.shape
+    # nb variables in columns rather than rows hence transpose
+    # extract just the cross terms between cols in a and cols in b
+    return np.corrcoef(a.T, b.T)[:ncols_a, ncols_a:]
+
 
 def feature_time_series(melmix, mc):
-    """ This function extracts the maximum RP correlation feature scores. It determines the maximum robust correlation of each component time-series with a model of 72 realigment parameters.
+    """ This function extracts the maximum RP correlation feature scores. 
+    It determines the maximum robust correlation of each component time-series
+    with a model of 72 realignment parameters.
 
     Parameters
     ---------------------------------------------------------------------------------
@@ -211,7 +222,8 @@ def feature_time_series(melmix, mc):
 
     Returns
     ---------------------------------------------------------------------------------
-    maxRPcorr:  Array of the maximum RP correlation feature scores for the components of the melodic_mix file"""
+    maxRPcorr:  Array of the maximum RP correlation feature scores for the components
+    of the melodic_mix file"""
 
     # Import required modules
     import numpy as np
@@ -219,71 +231,60 @@ def feature_time_series(melmix, mc):
 
     # Read melodic mix file (IC time-series), subsequently define a set of squared time-series
     mix = np.loadtxt(melmix)
-    mixsq = np.power(mix, 2)
 
     # Read motion parameter file
-    RP6 = np.loadtxt(mc)
+    rp6 = np.loadtxt(mc)
+    _, nparams = rp6.shape
 
     # Determine the derivatives of the RPs (add zeros at time-point zero)
-    RP6_der = np.array(RP6[list(range(1, RP6.shape[0])), :] - RP6[list(range(0, RP6.shape[0] - 1)), :])
-    RP6_der = np.concatenate((np.zeros((1, 6)), RP6_der), axis=0)
+    rp6_der = np.vstack((np.zeros(nparams),
+                         np.diff(rp6, axis=0)
+                         ))
+
+    #RP6_der = np.array(RP6[list(range(1, RP6.shape[0])), :] - RP6[list(range(0, RP6.shape[0] - 1)), :])
+    #RP6_der = np.concatenate((np.zeros((1, 6)), RP6_der), axis=0)
 
     # Create an RP-model including the RPs and its derivatives
-    RP12 = np.concatenate((RP6, RP6_der), axis=1)
+    rp12 = np.hstack((rp6, rp6_der))
+    #RP12 = np.concatenate((RP6, RP6_der), axis=1)
 
     # Add the squared RP-terms to the model
-    RP24 = np.concatenate((RP12, np.power(RP12, 2)), axis=1)
-
-    # Derive shifted versions of the RP_model (1 frame for and backwards)
-    RP24_1fw = np.concatenate((np.zeros((1, 24)), np.array(RP24[list(range(0, RP24.shape[0] - 1)), :])), axis=0)
-    RP24_1bw = np.concatenate((np.array(RP24[list(range(1, RP24.shape[0])), :]), np.zeros((1, 24))), axis=0)
-
-    # Combine the original and shifted mot_pars into a single model
-    RP_model = np.concatenate((RP24, RP24_1fw, RP24_1bw), axis=1)
-
-    # Define the column indices of respectively the squared or non-squared terms
-    idx_nonsq = np.array(np.concatenate((list(range(0, 12)), list(range(24, 36)), list(range(48, 60))), axis=0))
-    idx_sq = np.array(np.concatenate((list(range(12, 24)), list(range(36, 48)), list(range(60, 72))), axis=0))
+    # add the fw and bw shifted versions
+    rp12_1fw = np.vstack((
+        np.zeros(2 * nparams),
+        rp12[:-1]
+    ))
+    rp12_1bw = np.vstack((
+        rp12[1:],
+        np.zeros(2 * nparams)
+    ))
+    rp_model = np.hstack((rp12, rp12_1fw, rp12_1bw))
 
     # Determine the maximum correlation between RPs and IC time-series
-    nSplits = int(1000)
-    maxTC = np.zeros((nSplits, mix.shape[1]))
-    for i in range(0, nSplits):
-        # Get a random set of 90% of the dataset and get associated RP model and IC time-series matrices
-        idx = np.array(random.sample(list(range(0, mix.shape[0])), int(round(0.9 * mix.shape[0]))))
-        RP_model_temp = RP_model[idx, :]
-        mix_temp = mix[idx, :]
-        mixsq_temp = mixsq[idx, :]
+    nsplits = 1000
+    nmixrows, nmixcols = mix.shape
+    nrows_to_choose = int(round(0.9 * nmixrows))
 
-        # Calculate correlation between non-squared RP/IC time-series
-        RP_model_nonsq = RP_model_temp[:, idx_nonsq]
-        cor_nonsq = np.array(np.zeros((mix_temp.shape[1], RP_model_nonsq.shape[1])))
-        for j in range(0, mix_temp.shape[1]):
-            for k in range(0, RP_model_nonsq.shape[1]):
-                cor_temp = np.corrcoef(mix_temp[:, j], RP_model_nonsq[:, k])
-                cor_nonsq[j, k] = cor_temp[0, 1]
+    # Max correlations for multiple splits of the dataset (for a robust estimate)
+    max_correls = np.empty((nsplits, nmixcols))
+    for i in range(nsplits):
+        # Select a random subset of 90% of the dataset rows (*without* replacement)
+        chosen_rows = random.sample(population=range(nmixrows),
+                                    k=nrows_to_choose)
 
-        # Calculate correlation between squared RP/IC time-series
-        RP_model_sq = RP_model_temp[:, idx_sq]
-        cor_sq = np.array(np.zeros((mix_temp.shape[1], RP_model_sq.shape[1])))
-        for j in range(0, mixsq_temp.shape[1]):
-            for k in range(0, RP_model_sq.shape[1]):
-                cor_temp = np.corrcoef(mixsq_temp[:, j], RP_model_sq[:, k])
-                cor_sq[j, k] = cor_temp[0, 1]
+        # Combined correlations between RP and IC time-series, squared and non squared
+        correl_nonsquared = cross_correlation(mix[chosen_rows],
+                                              rp_model[chosen_rows])
+        correl_squared = cross_correlation(mix[chosen_rows]**2,
+                                           rp_model[chosen_rows]**2)
+        correl_both = np.hstack((correl_squared, correl_nonsquared))
 
-        # Combine the squared an non-squared correlation matrices
-        corMatrix = np.concatenate((cor_sq, cor_nonsq), axis=1)
+        # Maximum absolute temporal correlation for every IC
+        max_correls[i] = np.abs(correl_both).max(axis=1)
 
-        # Get maximum absolute temporal correlation for every IC
-        corMatrixAbs = np.abs(corMatrix)
-        maxTC[i, :] = corMatrixAbs.max(axis=1)
-
-    # Get the mean maximum correlation over all random splits
-    # nanmean to deal with occasional nans popping up in the correlation calculation
-    maxRPcorr = np.nanmean(maxTC, axis=0)
-
-    # Return the feature score
-    return maxRPcorr
+    # Feature score is the mean of the maximum correlation over all the random splits
+    # Avoid propagating occasional nans that arise in artificial test cases
+    return np.nanmean(max_correls, axis=0)
 
 
 def feature_frequency(melFTmix, TR):
@@ -497,14 +498,15 @@ def classification(outDir, maxRPcorr, edgeFract, HFC, csfFract):
     motionICs = np.squeeze(np.array(np.where((proj > 0) + (csfFract > thr_csf) + (HFC > thr_HFC))))
 
     # Put the feature scores in a text file
-    np.savetxt(os.path.join(outDir, 'feature_scores.txt'), np.vstack((maxRPcorr, edgeFract, HFC, csfFract)).T)
+    np.savetxt(os.path.join(outDir, 'feature_scores.txt'),
+               np.vstack((maxRPcorr, edgeFract, HFC, csfFract)).T)
 
     # Put the indices of motion-classified ICs in a text file
     txt = open(os.path.join(outDir, 'classified_motion_ICs.txt'), 'w')
     if motionICs.size > 1:  # and len(motionICs) != 0: if motionICs is not None and 
-        txt.write(','.join(['%.0f' % num for num in (motionICs + 1)]))
+        txt.write(','.join(['{:.0f}'.format(num) for num in (motionICs + 1)]))
     elif motionICs.size == 1:
-        txt.write('%.0f' % (motionICs + 1))
+        txt.write('{:.0f}'.format(motionICs + 1))
     txt.close()
 
     # Create a summary overview of the classification
@@ -521,12 +523,12 @@ def classification(outDir, maxRPcorr, edgeFract, HFC, csfFract):
             classif = "True"
         else:
             classif = "False"
-        txt.write('\t'.join([i + 1,
-                            classif,
-                            maxRPcorr[i],
-                            edgeFract[i],
-                            HFC[i],
-                            csfFract[i]]))
+        txt.write('\t'.join(['{:d}'.format(i + 1),
+                             classif,
+                             '{:.2f}'.format(maxRPcorr[i]),
+                             '{:.2f}'.format(edgeFract[i]),
+                             '{:.2f}'.format(HFC[i]),
+                             '{:.2f}'.format(csfFract[i])]))
         txt.write('\n')
     txt.close()
 
