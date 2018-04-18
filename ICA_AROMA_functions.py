@@ -58,7 +58,8 @@ def runICA(fslDir, inFile, outDir, melDirIn, mask, dim, TR):
             # Create symbolic links to the items in the specified melodic directory
             os.makedirs(melDir)
             for item in os.listdir(melDirIn):
-                os.symlink(os.path.join(melDirIn, item), os.path.join(melDir, item))
+                os.symlink(os.path.join(melDirIn, item),
+                           os.path.join(melDir, item))
 
             # Run mixture modeling
             os.system(' '.join([os.path.join(fslDir, 'melodic'),
@@ -508,14 +509,25 @@ def classification(outDir, maxRPcorr, edgeFract, HFC, csfFract):
 
     # Create a summary overview of the classification
     txt = open(os.path.join(outDir, 'classification_overview.txt'), 'w')
-    txt.write('IC' + '\t' + 'Motion/noise' + '\t' + 'maximum RP correlation' + '\t' + 'Edge-fraction' + '\t\t' + 'High-frequency content' + '\t' + 'CSF-fraction')
+    txt.write('\t'.join(['IC',
+                         'Motion/noise',
+                         'maximum RP correlation',
+                         'Edge-fraction',
+                         'High-frequency content',
+                         'CSF-fraction']))
     txt.write('\n')
     for i in range(0, len(csfFract)):
         if (proj[i] > 0) or (csfFract[i] > thr_csf) or (HFC[i] > thr_HFC):
             classif = "True"
         else:
             classif = "False"
-        txt.write('%.0f\t%s\t\t%.2f\t\t\t%.2f\t\t\t%.2f\t\t\t%.2f\n' % (i + 1, classif, maxRPcorr[i], edgeFract[i], HFC[i], csfFract[i]))
+        txt.write('\t'.join([i + 1,
+                            classif,
+                            maxRPcorr[i],
+                            edgeFract[i],
+                            HFC[i],
+                            csfFract[i]]))
+        txt.write('\n')
     txt.close()
 
     return motionICs
