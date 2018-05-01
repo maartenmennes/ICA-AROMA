@@ -43,6 +43,7 @@ optoptions.add_argument('-tr', dest="TR", help='TR in seconds', type=float)
 optoptions.add_argument('-den', dest="denType", default="nonaggr", help='Type of denoising strategy: \'no\': only classification, no denoising; \'nonaggr\': non-aggresssive denoising (default); \'aggr\': aggressive denoising; \'both\': both aggressive and non-aggressive denoising (seperately)')
 optoptions.add_argument('-md', '-meldir', dest="melDir", default="",help='MELODIC directory name, in case MELODIC has been run previously.')
 optoptions.add_argument('-dim', dest="dim", default=0, help='Dimensionality reduction into #num dimensions when running MELODIC (default: automatic estimation; i.e. -dim 0)', type=int)
+optoptions.add_argument('-ow', '-overwrite', dest="overwrite", action='store_true', help='Overwrite existing output', default=False)
 
 print('\n------------------------------- RUNNING ICA-AROMA ------------------------------- ')
 print('--------------- \'ICA-based Automatic Removal Of Motion Artifacts\' --------------- \n')
@@ -144,7 +145,16 @@ if cancel:
 fslDir = os.path.join(os.environ["FSLDIR"], 'bin', '')
 
 # Create output directory if needed
-if not os.path.isdir(outDir):
+if os.path.isdir(outDir) and args.overwrite is False:
+    print('Output directory', outDir, """already exists.
+          AROMA will not continue.
+          Rerun with the -overwrite option to explicitly overwrite existing output.""")
+    exit()
+elif os.path.isdir(outDir) and args.overwrite is True:
+    print('Warning! Output directory', outDir, 'exists and will be overwritten.\n')
+    shutil.rmtree(outDir)
+    os.makedirs(outDir)
+else:
     os.makedirs(outDir)
 
 # Get TR of the fMRI data, if not specified
@@ -161,6 +171,7 @@ if TR == 1:
     print('Warning! Please check whether the determined TR (of ' + str(TR) + 's) is correct!\n')
 elif TR == 0:
     print('TR is zero. ICA-AROMA requires a valid TR and will therefore exit. Please check the header, or define the TR as an additional argument.\n----------------------------- ICA-AROMA IS CANCELED -----------------------------\n')
+    exit()
 
 # Define/create mask. Either by making a copy of the specified mask, or by creating a new one.
 mask = os.path.join(outDir, 'mask.nii.gz')

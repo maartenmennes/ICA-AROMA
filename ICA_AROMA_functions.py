@@ -241,12 +241,8 @@ def feature_time_series(melmix, mc):
                          np.diff(rp6, axis=0)
                          ))
 
-    #RP6_der = np.array(RP6[list(range(1, RP6.shape[0])), :] - RP6[list(range(0, RP6.shape[0] - 1)), :])
-    #RP6_der = np.concatenate((np.zeros((1, 6)), RP6_der), axis=0)
-
     # Create an RP-model including the RPs and its derivatives
     rp12 = np.hstack((rp6, rp6_der))
-    #RP12 = np.concatenate((RP6, RP6_der), axis=1)
 
     # Add the squared RP-terms to the model
     # add the fw and bw shifted versions
