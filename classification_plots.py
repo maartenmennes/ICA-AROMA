@@ -5,9 +5,11 @@ def classification_plot(myinput, outDir):
 
     import pandas as pd
     import numpy as np
-    import seaborn as sns
+    import matplotlib as mpl
+    mpl.use('Agg')
     import matplotlib.pyplot as plt
     from matplotlib import gridspec
+    import seaborn as sns
     import glob
     import os
 
