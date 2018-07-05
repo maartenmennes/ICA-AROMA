@@ -57,7 +57,8 @@ def runICA(fslDir, inFile, outDir, melDirIn, mask, dim, TR):
             print('  - The MELODIC directory does not contain the required \'stats\' folder. Mixture modeling on the Z-statistical maps will be run.')
 
             # Create symbolic links to the items in the specified melodic directory
-            os.makedirs(melDir)
+            if not os.path.exists(melDir):
+                os.makedirs(melDir)
             for item in os.listdir(melDirIn):
                 os.symlink(os.path.join(melDirIn, item),
                            os.path.join(melDir, item))
@@ -211,7 +212,7 @@ def cross_correlation(a, b):
 
 
 def feature_time_series(melmix, mc):
-    """ This function extracts the maximum RP correlation feature scores. 
+    """ This function extracts the maximum RP correlation feature scores.
     It determines the maximum robust correlation of each component time-series
     with a model of 72 realignment parameters.
 
@@ -342,7 +343,7 @@ def feature_spatial(fslDir, tempDir, aromaDir, melIC):
     ---------------------------------------------------------------------------------
     fslDir:     Full path of the bin-directory of FSL
     tempDir:    Full path of a directory where temporary files can be stored (called 'temp_IC.nii.gz')
-    aromaDir:   Full path of the ICA-AROMA directory, containing the mask-files (mask_edge.nii.gz, mask_csf.nii.gz & mask_out.nii.gz) 
+    aromaDir:   Full path of the ICA-AROMA directory, containing the mask-files (mask_edge.nii.gz, mask_csf.nii.gz & mask_out.nii.gz)
     melIC:      Full path of the nii.gz file containing mixture-modeled threholded (p>0.5) Z-maps, registered to the MNI152 2mm template
 
     Returns
@@ -455,8 +456,8 @@ def feature_spatial(fslDir, tempDir, aromaDir, melIC):
 
 
 def classification(outDir, maxRPcorr, edgeFract, HFC, csfFract):
-    """ This function classifies a set of components into motion and 
-    non-motion components based on four features; 
+    """ This function classifies a set of components into motion and
+    non-motion components based on four features;
     maximum RP correlation, high-frequency content, edge-fraction and CSF-fraction
 
     Parameters
@@ -499,7 +500,7 @@ def classification(outDir, maxRPcorr, edgeFract, HFC, csfFract):
 
     # Put the indices of motion-classified ICs in a text file
     txt = open(os.path.join(outDir, 'classified_motion_ICs.txt'), 'w')
-    if motionICs.size > 1:  # and len(motionICs) != 0: if motionICs is not None and 
+    if motionICs.size > 1:  # and len(motionICs) != 0: if motionICs is not None and
         txt.write(','.join(['{:.0f}'.format(num) for num in (motionICs + 1)]))
     elif motionICs.size == 1:
         txt.write('{:.0f}'.format(motionICs + 1))
@@ -532,7 +533,7 @@ def classification(outDir, maxRPcorr, edgeFract, HFC, csfFract):
 
 
 def denoising(fslDir, inFile, outDir, melmix, denType, denIdx):
-    """ This function classifies the ICs based on the four features; 
+    """ This function classifies the ICs based on the four features;
     maximum RP correlation, high-frequency content, edge-fraction and CSF-fraction
 
     Parameters
@@ -541,7 +542,7 @@ def denoising(fslDir, inFile, outDir, melmix, denType, denIdx):
     inFile:     Full path to the data file (nii.gz) which has to be denoised
     outDir:     Full path of the output directory
     melmix:     Full path of the melodic_mix text file
-    denType:    Type of requested denoising ('aggr': aggressive, 'nonaggr': non-aggressive, 'both': both aggressive and non-aggressive 
+    denType:    Type of requested denoising ('aggr': aggressive, 'nonaggr': non-aggressive, 'both': both aggressive and non-aggressive
     denIdx:     Indices of the components that should be regressed out
 
     Output (within the requested output directory)
