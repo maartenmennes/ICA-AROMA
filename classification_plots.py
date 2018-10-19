@@ -49,13 +49,13 @@ def classification_plot(myinput, outDir):
 
     # add dummy components if needed, this is just for making the plots look nice
     tmp = df.loc[df[0] == "True"]
-    if len(tmp) == 0:
+    if len(tmp) < 3:
         df3 = pd.DataFrame.from_records([["True", 1., 1., 0., 0.],
                                         ["True", 1., 1., 0., 0.],
                                         ["True", 1., 1., 0., 0.]])
         df = df.append(df3, ignore_index=True)
     tmp = df.loc[df[0] == "False"]
-    if len(tmp) == 0:
+    if len(tmp) < 3:
         df3 = pd.DataFrame.from_records([["False", 0., 0., 0., 0.],
                                         ["False", 0., 0., 0., 0.],
                                         ["False", 0., 0., 0., 0.]])
