@@ -157,14 +157,14 @@ def register2MNI(fslDir, inFile, outFile, affmat, warp):
 
     # If the no affmat- or warp-file has been specified, assume that the data is already in MNI152 space. In that case only check if resampling to 2mm is needed
     if (len(affmat) == 0) and (len(warp) == 0):
-        # Get 3D voxel size
+        # Get 3D voxel size & bounding box
         pixdim1 = float(subprocess.getoutput('%sfslinfo %s | grep pixdim1 | awk \'{print $2}\'' % (fslDir, inFile)))
         pixdim2 = float(subprocess.getoutput('%sfslinfo %s | grep pixdim2 | awk \'{print $2}\'' % (fslDir, inFile)))
         pixdim3 = float(subprocess.getoutput('%sfslinfo %s | grep pixdim3 | awk \'{print $2}\'' % (fslDir, inFile)))
         dim1 = float(subprocess.getoutput('%sfslinfo %s | grep "^dim1" | awk \'{print $2}\'' % (fslDir, inFile)))
         dim2 = float(subprocess.getoutput('%sfslinfo %s | grep "^dim2" | awk \'{print $2}\'' % (fslDir, inFile)))
         dim3 = float(subprocess.getoutput('%sfslinfo %s | grep "^dim3" | awk \'{print $2}\'' % (fslDir, inFile)))
-        # If voxel size is not 2mm isotropic, resample the data, otherwise copy the file
+        # Check if data is 2mm isotropic voxel size and check that the bounding box dimensions match, if they don't then resample the data 
         if (pixdim1 != 2) or (pixdim2 != 2) or (pixdim3 != 2) or (dim1 != 91) or (dim2 != 109) or (dim3 != 91) :
             os.system(' '.join([os.path.join(fslDir, 'flirt'),
                                 ' -ref ' + ref,
