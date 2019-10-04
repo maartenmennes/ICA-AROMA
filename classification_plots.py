@@ -100,7 +100,8 @@ def classification_plot(myinput, outDir):
                 y="Freq",
                 data=df,
                 ax=ax2,
-                palette=[colortrue, colorfalse])
+                palette=[colortrue, colorfalse],
+                order=['True', 'False'])
     ax2.hlines(0.35, -1, 2, zorder=0, linestyles='dotted', linewidth=0.5)
     ax2.set_ylim([0, 1])
     ax2.set_xlabel('Classification', fontsize=14, labelpad=10)
@@ -114,7 +115,8 @@ def classification_plot(myinput, outDir):
                 y="CSF",
                 data=df,
                 ax=ax3,
-                palette=[colortrue, colorfalse])
+                palette=[colortrue, colorfalse],
+                order=['True', 'False'])
     ax3.hlines(0.1, -1, 2, zorder=0, linestyles='dotted', linewidth=0.5)
     ax3.set_ylim([0, 1])
     ax3.set_xlabel('Classification', fontsize=14, labelpad=10)
