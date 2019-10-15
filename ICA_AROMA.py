@@ -230,9 +230,6 @@ if (denType != 'no'):
     print('Step 3) Data denoising')
     aromafunc.denoising(fslDir, inFile, outDir, melmix, denType, motionICs)
 
-# Remove thresholded melodic_IC file
-os.remove(melIC)
-
 # Revert to old directory
 os.chdir(cwd)
 
