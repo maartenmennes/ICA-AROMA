@@ -1,5 +1,5 @@
 future
-matplotlib== 2.2
+matplotlib==2.2
 numpy==1.14
 pandas==0.23
-seaborn==0.8
+seaborn==0.9.0
