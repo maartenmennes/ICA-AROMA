@@ -10,7 +10,6 @@ import argparse
 import subprocess
 import ICA_AROMA_functions as aromafunc
 import shutil
-import classification_plots
 
 # Change to script directory
 cwd = os.path.realpath(os.path.curdir)
@@ -21,7 +20,7 @@ os.chdir(scriptDir)
 
 parser = argparse.ArgumentParser(description='Script to run ICA-AROMA v0.3 beta (\'ICA-based Automatic Removal Of Motion Artifacts\') on fMRI data. See the companion manual for further information.')
 
-# Required options                    
+# Required options
 reqoptions = parser.add_argument_group('Required arguments')
 reqoptions.add_argument('-o', '-out', dest="outDir", required=True, help='Output directory name')
 
@@ -44,6 +43,7 @@ optoptions.add_argument('-den', dest="denType", default="nonaggr", help='Type of
 optoptions.add_argument('-md', '-meldir', dest="melDir", default="",help='MELODIC directory name, in case MELODIC has been run previously.')
 optoptions.add_argument('-dim', dest="dim", default=0, help='Dimensionality reduction into #num dimensions when running MELODIC (default: automatic estimation; i.e. -dim 0)', type=int)
 optoptions.add_argument('-ow', '-overwrite', dest="overwrite", action='store_true', help='Overwrite existing output', default=False)
+optoptions.add_argument('-np', '-noplots', dest="generate_plots", action='store_false', help='Plot component classification overview similar to plot in the main AROMA paper', default=True)
 
 print('\n------------------------------- RUNNING ICA-AROMA ------------------------------- ')
 print('--------------- \'ICA-based Automatic Removal Of Motion Artifacts\' --------------- \n')
@@ -222,8 +222,11 @@ HFC = aromafunc.feature_frequency(melFTmix, TR)
 
 print('  - classification')
 motionICs = aromafunc.classification(outDir, maxRPcorr, edgeFract, HFC, csfFract)
-classification_plots.classification_plot(os.path.join(outDir, 'classification_overview.txt'),
-                                         outDir)
+
+if args.generate_plots:
+    from classification_plots import classification_plot
+    classification_plot(os.path.join(outDir, 'classification_overview.txt'),
+                        outDir)
 
 
 if (denType != 'no'):
