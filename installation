@@ -1,0 +1,30 @@
+Hello all,
+I am trying to install ICA-AROMA on my macOS Catalina 10.15.3. 
+I am unable to do so because of the following error-
+
+Apples-MacBook-Air:~ apple$ curl -sSL "https://github.com/rhr-pruim/ICA-AROMA/archive/v0.4.3-beta.tar.gz" | tar -xzC /opt/ICA-AROMA --strip-componets 1
+tar: Option --strip-componets is not supported
+Usage:
+  List:    tar -tf <archive-filename>
+  Extract: tar -xf <archive-filename>
+  Create:  tar -cf <archive-filename> [filenames...]
+  Help:    tar --help
+curl: (23) Failed writing body (0 != 1370)
+
+ I am having FSL (version 6.0) pre-installed and default python 2.7 that comes with mac. Also I tried installing python modules - os, argparse,numpy,commands, random using pip.
+ But there is a following error in installing the commands and random module.
+ 
+ Apples-MacBook-Air:bin apple$ pip install commands
+DEPRECATION: Python 2.7 reached the end of its life on January 1st, 2020. Please upgrade your Python as Python 2.7 is no longer maintained. A future version of pip will drop support for Python 2.7. More details about Python 2 support in pip, can be found at https://pip.pypa.io/en/latest/development/release-process/#python-2-support
+Defaulting to user installation because normal site-packages is not writeable
+ERROR: Could not find a version that satisfies the requirement commands (from versions: none)
+ERROR: No matching distribution found for commands
+Apples-MacBook-Air:bin apple$ pip install random
+DEPRECATION: Python 2.7 reached the end of its life on January 1st, 2020. Please upgrade your Python as Python 2.7 is no longer maintained. A future version of pip will drop support for Python 2.7. More details about Python 2 support in pip, can be found at https://pip.pypa.io/en/latest/development/release-process/#python-2-support
+Defaulting to user installation because normal site-packages is not writeable
+ERROR: Could not find a version that satisfies the requirement random (from versions: none)
+ERROR: No matching distribution found for random
+
+I am no sure what the issue is? Can someone look into it?
+Thanks in advance
+ 
