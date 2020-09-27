@@ -20,8 +20,8 @@ setup(
     packages=['ica_aroma'],
     install_requires=['nibabel>=1.3.0', 'matplotlib>=2.2', 'numpy>=1.14',
                       'pandas>=0.23', 'seaborn>=0.9.0'],
-    tests_require=['nose'],
-    entry_points={'console_scripts': ['ica_aroma = ica_aroma.ica_aroma:main']},
+    tests_require=['pytest'],
+    entry_points={'console_scripts': ['ica_aroma = ica_aroma.ica_aroma:ica_aroma_cli']},
     package_data={'icaaroma': ['data/mask_*.nii.gz']},
     classifiers=[
         "Development Status :: 4 - Beta",

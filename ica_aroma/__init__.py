@@ -12,7 +12,7 @@ def get_data_path():
     @return path to data/ (string)
     """
     datadir = os.environ.get("AROMADIR", None) or \
-        os.path.join(ica_aroma.__loader__.path, "data")
+        os.path.join(os.path.dirname(ica_aroma.__loader__.path), "data")
 
     assert os.path.isdir(datadir)
     assert os.path.isfile(os.path.join(datadir, 'mask_csf.nii.gz'))
