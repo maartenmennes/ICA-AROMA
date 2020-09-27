@@ -15,7 +15,7 @@ setup(
     author_email="m.mennes@donders.ru.nl",
     version='0.4.0',
     license='Apache Software License',
-    url="http://github.com/rtrhd/icaaroma",
+    url="http://github.com/maartenmennes/ICA-AROMA",
     keywords="ics fmri motion",
     packages=['ica_aroma'],
     install_requires=['nibabel>=1.3.0', 'matplotlib>=2.2', 'numpy>=1.14',
