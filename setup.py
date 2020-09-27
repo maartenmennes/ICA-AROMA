@@ -22,7 +22,7 @@ setup(
                       'pandas>=0.23', 'seaborn>=0.9.0'],
     tests_require=['pytest'],
     entry_points={'console_scripts': ['ica_aroma = ica_aroma.ica_aroma:ica_aroma_cli']},
-    package_data={'icaaroma': ['data/mask_*.nii.gz']},
+    package_data={'icaaroma': ['ica_aroma/data/mask_*.nii.gz']},
     classifiers=[
         "Development Status :: 4 - Beta",
         "Environment :: Console",
