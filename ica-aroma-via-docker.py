@@ -16,7 +16,7 @@ targ_ind = mod_args.index("-out") + 1
 mod_args[targ_ind] = os.path.abspath(mod_args[targ_ind])
 
 # Call the ICA-AROMA process
-cmd = "python /ICA-AROMA/ICA_AROMA.py " + " ".join(mod_args)
+cmd = "ica_aroma " + " ".join(mod_args)
 print("Running: " + cmd + "\n")
 process = Popen( cmd.split() ) 
 sys.exit( process.wait() )

@@ -14,9 +14,6 @@ import sys
 
 
 def ica_aroma_cli(argv=sys.argv):
-    if len(argv) > 0:
-        argv.pop(0)
-
     # Change to script directory
     cwd = os.path.realpath(os.path.curdir)
     scriptDir = get_data_path()
@@ -25,6 +22,9 @@ def ica_aroma_cli(argv=sys.argv):
     #-------------------------------------------- PARSER --------------------------------------------#
 
     parser = argparse.ArgumentParser(description='Script to run ICA-AROMA v0.3 beta (\'ICA-based Automatic Removal Of Motion Artifacts\') on fMRI data. See the companion manual for further information.')
+
+    if argv is not None and len(argv) > 0:
+        argv.pop(0)
 
     # Required options
     reqoptions = parser.add_argument_group('Required arguments')
