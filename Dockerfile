@@ -10,4 +10,5 @@ RUN yum install -y numpy scipy
 
 # Add everything to the container
 ADD . /ICA-AROMA
+RUN pip install -e /ICA-AROMA
 
