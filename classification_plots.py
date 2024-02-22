@@ -38,7 +38,7 @@ def classification_plot(myinput, outDir):
             df = pd.DataFrame.from_records(res)
         else:
             df2 = pd.DataFrame.from_records(res)
-            df = df.concat([df, df2], ignore_index=True)
+            df = pd.concat([df, df2], ignore_index=True)
 
         count += 1
 
@@ -53,13 +53,13 @@ def classification_plot(myinput, outDir):
         df3 = pd.DataFrame.from_records([["True", 1., 1., 0., 0.],
                                         ["True", 1., 1., 0., 0.],
                                         ["True", 1., 1., 0., 0.]])
-        df = df.concat([df, df3], ignore_index=True)
+        df = pd.concat([df, df3], ignore_index=True)
     tmp = df.loc[df[0] == "False"]
     if len(tmp) < 3:
         df3 = pd.DataFrame.from_records([["False", 0., 0., 0., 0.],
                                         ["False", 0., 0., 0., 0.],
                                         ["False", 0., 0., 0., 0.]])
-        df = df.concat([df, df3], ignore_index=True)
+        df = pd.concat([df, df3], ignore_index=True)
 
     # rename columns
     df = df.rename(index=str, columns={0: 'Motion',
